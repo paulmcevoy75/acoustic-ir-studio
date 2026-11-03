@@ -1,0 +1,8 @@
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+sounddevice>=0.4.6
+soundfile>=0.12
+pycaw>=20230407; sys_platform == "win32"
+comtypes>=1.2; sys_platform == "win32"
+imageio-ffmpeg>=0.4.9

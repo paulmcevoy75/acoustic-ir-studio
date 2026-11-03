@@ -1,0 +1,20 @@
+# Your own data - stays on your computer, never uploaded
+autosave/
+autosave_previous/
+logs/
+devices.json
+step_lengths.json
+*.irproject
+*.irsession
+*.flac
+*.wav
+
+# Python / build output
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+custom_targets.json
+settings.json

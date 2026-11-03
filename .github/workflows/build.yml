@@ -1,0 +1,92 @@
+name: Build Windows app
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Accuracy tests
+        run: |
+          python tests/test_engine.py
+          python tests/test_tone_match.py
+          python tests/test_dual.py
+
+      - name: Build AcousticIRStudio.exe
+        run: >
+          pyinstaller --noconfirm --onedir --windowed --name AcousticIRStudio
+          --collect-all _sounddevice_data --collect-all _soundfile_data --collect-all imageio_ffmpeg
+          --hidden-import pycaw --collect-submodules comtypes
+          acoustic_ir_studio.py
+
+      - name: Add data files + build info
+        shell: pwsh
+        run: |
+          Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md dist/AcousticIRStudio/
+          Copy-Item docs/USER_GUIDE.md dist/AcousticIRStudio/USER_GUIDE.md
+          $info = @{ version = "1.${{ github.run_number }}"; commit = "${{ github.sha }}".Substring(0, 7); date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm") + " UTC" }
+          $info | ConvertTo-Json | Set-Content -Encoding utf8 dist/AcousticIRStudio/build_info.json
+
+      - name: Check the app starts (opens every tab, builds a test IR, closes)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist/AcousticIRStudio/AcousticIRStudio.exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content dist/AcousticIRStudio/logs/app.log -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { Write-Error "Self-test failed (exit $($p.ExitCode))"; exit 1 }
+          Remove-Item -Recurse -Force dist/AcousticIRStudio/logs -ErrorAction SilentlyContinue
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path dist/AcousticIRStudio -DestinationPath AcousticIRStudio-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AcousticIRStudio-windows
+          path: AcousticIRStudio-windows.zip
+
+      - name: Publish release (version tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: AcousticIRStudio-windows.zip
+          generate_release_notes: true
+
+      - name: Publish "Latest build" release (every update to main)
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # replace the previous Latest build (ignore the error if there isn't one yet)
+          gh release delete latest --yes --cleanup-tag 2>$null
+          # remove leftovers from before the history was squashed (no-op once they're gone)
+          gh release delete v1.0.0 --yes --cleanup-tag 2>$null
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/v1.0.0" 2>$null
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/pending-changes" 2>$null
+          $global:LASTEXITCODE = 0
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          $when = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm")
+          $notes = "Built automatically from commit $sha on $when UTC.`n`n" +
+                   "**Download AcousticIRStudio-windows.zip**, unzip it, and run **AcousticIRStudio.exe** (no Python needed). " +
+                   "To update, unzip the new one over the old folder - your autosaves, logs and settings are kept.`n`n" +
+                   "If Windows says 'Windows protected your PC', click More info -> Run anyway (the app isn't code-signed)."
+          gh release create latest AcousticIRStudio-windows.zip --target "${{ github.sha }}" --title "Version 1.${{ github.run_number }} ($sha)" --notes "$notes" --latest
+          if ($LASTEXITCODE -ne 0) { exit 1 }
