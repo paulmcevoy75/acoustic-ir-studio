@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import threading
 import time
 import traceback
 
@@ -315,6 +314,7 @@ class CaptureTab:
                 try:
                     lvl = WV.get_level(m[2])
                 except Exception:
+                    log.debug("_refresh_input_levels: ignored error", exc_info=True)
                     lvl = None
             if lvl is None:
                 self.inlvl_scale[role].state(["disabled"])
@@ -443,7 +443,7 @@ class CaptureTab:
                     log.exception("processing take %s mic %s", label, s)
                     self.q.put(("error", f"[{self.mic_name(s)}] [{label}] {exc}", traceback.format_exc()))
             self.q.put(("take_done", done, advance))
-        threading.Thread(target=work, daemon=True).start()
+        self._background(work)
 
     def _process_async(self, x, y, label, two_dev, advance=False):
         """Single-mic take into the slot currently shown (used by WAV import)."""

@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
+import logging
+
+log = logging.getLogger("acoustic_ir")
 
 
 class ScrollFrame(ttk.Frame):
@@ -76,7 +79,7 @@ class Tooltip:
             try:
                 self.w.after_cancel(self.job)
             except Exception:
-                pass
+                log.debug("_cancel: ignored error", exc_info=True)
             self.job = None
 
     def _show(self):
@@ -92,6 +95,7 @@ class Tooltip:
             tk.Label(self.tip, text=self.text, justify="left", wraplength=self.wrap, background="#ffffe0",
                      relief="solid", borderwidth=1, font=("Segoe UI", 9), padx=6, pady=4).pack()
         except Exception:
+            log.debug("_show: ignored error", exc_info=True)
             self.tip = None
 
     def _leave(self, _e=None):
@@ -100,5 +104,5 @@ class Tooltip:
             try:
                 self.tip.destroy()
             except Exception:
-                pass
+                log.debug("_leave: ignored error", exc_info=True)
             self.tip = None

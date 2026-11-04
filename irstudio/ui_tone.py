@@ -24,6 +24,9 @@ from . import tone_match as TM
 from .audio import dev_index
 from .config import APP_NAME, ROLES
 from .util import MEDIA_EXT, load_any_audio
+import logging
+
+log = logging.getLogger("acoustic_ir")
 
 
 class ToneMatchTab:
@@ -153,7 +156,6 @@ class ToneMatchTab:
         self.tm_auto(key)
 
     def tm_load(self, key):
-        import soundfile as sf
         p = filedialog.askopenfilename(
             title="Reference recording" if key == "ref" else "Your instrument's recording",
             filetypes=[("Audio / video", " ".join("*." + e for e in MEDIA_EXT)), ("All files", "*.*")])
@@ -235,7 +237,7 @@ class ToneMatchTab:
         try:
             self.tm_span[key].extents = (i0 / d["fs"], i1 / d["fs"])
         except Exception:
-            pass
+            log.debug("tm_auto: ignored error", exc_info=True)
         self._tm_analyse(key)
 
     def _tm_analyse(self, key):
@@ -250,6 +252,7 @@ class ToneMatchTab:
             if h["plucks"] < 3:
                 txt += "  - more plucks of the note = more accurate"
         except Exception as exc:
+            log.debug("_tm_analyse: ignored error", exc_info=True)
             d["h"] = None
             txt = f"{d['name']}: {exc}"
         self.tm_info[key].configure(text=txt)

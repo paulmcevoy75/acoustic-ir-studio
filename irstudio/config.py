@@ -53,11 +53,12 @@ def build_info():
             t = _dt.datetime.strptime(date.replace(" UTC", ""), "%Y-%m-%d %H:%M").replace(
                 tzinfo=_dt.timezone.utc).astimezone()
             date = f"{t.day} {t.strftime('%b %Y, %H:%M')}"
-        except Exception:
-            pass
+        except ValueError:
+            log.debug("build_info: ignored error", exc_info=True)
         return {"version": str(bi.get("version") or f"{APP_MAJOR}.x"), "date": date,
                 "commit": bi.get("commit", "?"), "release": True}
-    except Exception:
+    except (OSError, ValueError):
+        log.debug("build_info: ignored error", exc_info=True)
         return {"version": f"{APP_MAJOR}.x (development copy)", "date": "not a release build",
                 "commit": "-", "release": False}
 
@@ -90,7 +91,8 @@ def _data_dir():
             fh.write("ok")
         os.remove(test)
         return HERE
-    except Exception:
+    except OSError:
+        log.debug("_data_dir: ignored error", exc_info=True)
         base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
         d = os.path.join(base, "AcousticIRStudio")
         os.makedirs(d, exist_ok=True)
@@ -121,17 +123,40 @@ def load_settings():
     try:
         with open(SETTINGS_FILE) as fh:
             return json.load(fh)
-    except Exception:
+    except (OSError, ValueError):
+        log.debug("load_settings: ignored error", exc_info=True)
         return {}
+
+
+def write_atomic(path, write):
+    """Write a file so it's never left half-written: write(tmp_path) fills a temporary file
+    next to it, which then replaces the real one in a single step."""
+    root, ext = os.path.splitext(path)
+    tmp = f"{root}.tmp{os.getpid()}{ext}"
+    try:
+        write(tmp)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                log.debug("couldn't remove %s", tmp, exc_info=True)
+
+
+def write_json(path, obj):
+    def w(tmp):
+        with open(tmp, "w") as fh:
+            json.dump(obj, fh, indent=2)
+    write_atomic(path, w)
 
 
 def save_settings(**kw):
     st = load_settings()
     st.update(kw)
     try:
-        with open(SETTINGS_FILE, "w") as fh:
-            json.dump(st, fh, indent=2)
-    except Exception:
+        write_json(SETTINGS_FILE, st)
+    except OSError:
         log.exception("couldn't save settings")
 
 
@@ -147,7 +172,7 @@ def setup_logging():
         if os.path.exists(p) and os.path.getsize(p) > 5e6:
             os.replace(p, p + ".old")
     except Exception:
-        pass
+        log.debug("setup_logging: ignored error", exc_info=True)
     logging.basicConfig(filename=os.path.join(LOG_DIR, "app.log"), level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(threadName)s: %(message)s")
     try:
@@ -156,7 +181,7 @@ def setup_logging():
         setup_logging.crash_fh.flush()
         faulthandler.enable(setup_logging.crash_fh, all_threads=True)
     except Exception:
-        pass
+        log.debug("setup_logging: ignored error", exc_info=True)
 
     def hook(t, v, tb):
         log.error("Unhandled error:\n%s", "".join(traceback.format_exception(t, v, tb)))
@@ -212,14 +237,13 @@ def load_pedals():
             custom = [p for p in json.load(fh)["targets"] if not p.get("preset")]
     except FileNotFoundError:
         pass
-    except Exception:
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         log.exception("couldn't read custom targets")
     return [dict(p) for p in PRESET_TARGETS] + custom
 
 
 def save_pedals(pedals):
     try:
-        with open(CUSTOM_TARGETS_FILE, "w") as fh:
-            json.dump({"targets": [p for p in pedals if not p.get("preset")]}, fh, indent=2)
-    except Exception:
+        write_json(CUSTOM_TARGETS_FILE, {"targets": [p for p in pedals if not p.get("preset")]})
+    except OSError:
         log.exception("couldn't save custom targets")

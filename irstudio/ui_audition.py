@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import threading
 import time
 
 import numpy as np
@@ -23,7 +22,7 @@ from . import audio
 from . import engine as E
 from . import tone_match as TM
 from .audio import AuditionPlayer, dev_index
-from .config import APP_NAME, AUTOSAVE_DIR, ROLES, ROLE_BASE, log
+from .config import APP_NAME, AUTOSAVE_DIR, ROLES, ROLE_BASE, log, write_atomic, write_json
 from .util import decimate_line
 
 
@@ -115,13 +114,14 @@ class AuditionPanel:
                     a = np.zeros((n, len(roles)), np.float32)
                     for k, r in enumerate(roles):
                         a[:len(demo[r]), k] = demo[r]
-                    sf.write(os.path.join(AUTOSAVE_DIR, "demo.flac"), np.clip(a, -1, 1), fs, subtype="PCM_24")
-                    with open(os.path.join(AUTOSAVE_DIR, "demo.json"), "w") as fh:
-                        json.dump({"fs": fs, "roles": roles, "lengths": [len(demo[r]) for r in roles],
-                                   "two": {r: bool(v) for r, v in two.items()}}, fh)
+                    write_atomic(os.path.join(AUTOSAVE_DIR, "demo.flac"),
+                                 lambda tmp: sf.write(tmp, np.clip(a, -1, 1), fs, subtype="PCM_24", format="FLAC"))
+                    write_json(os.path.join(AUTOSAVE_DIR, "demo.json"),
+                               {"fs": fs, "roles": roles, "lengths": [len(demo[r]) for r in roles],
+                                "two": {r: bool(v) for r, v in two.items()}})
                 except Exception:
                     log.exception("saving demo failed")
-            threading.Thread(target=work, daemon=True).start()
+            self._background(work)
         if hasattr(self, "aud_status"):
             self.player.loop = None
             self.player.pos = 0
@@ -436,7 +436,7 @@ class AuditionPanel:
                 try:
                     _, zi, _ = E.align_two_device(x, zi, fs)
                 except Exception:
-                    pass
+                    log.debug("_render_audition: ignored error", exc_info=True)
             zi = np.pad(zi, (0, max(0, len(y) - len(zi))))[:len(y)]
             rms = lambda v: np.sqrt(np.mean(v ** 2)) + 1e-12
             y = (1 - b) * y / rms(y) + b * zi / rms(zi)
@@ -603,6 +603,7 @@ class AuditionPanel:
             if self._aud_head is not None:
                 self.aud_ax.draw_artist(self._aud_head)
         except Exception:
+            log.debug("_aud_on_draw: ignored error", exc_info=True)
             self._aud_bg = None
 
     def _aud_draw_head(self):
@@ -620,6 +621,7 @@ class AuditionPanel:
             self.aud_ax.draw_artist(self._aud_head)
             self.aud_canvas.blit(self.aud_fig.bbox)
         except Exception:
+            log.debug("_aud_draw_head: ignored error", exc_info=True)
             self.aud_canvas.draw_idle()
 
     def _aud_tick(self):
@@ -656,5 +658,5 @@ class AuditionPanel:
         try:
             self.aud_span.clear()
         except Exception:
-            pass
+            log.debug("_aud_clear_loop: ignored error", exc_info=True)
         self._aud_draw()

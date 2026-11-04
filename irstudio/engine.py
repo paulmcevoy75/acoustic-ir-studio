@@ -29,11 +29,15 @@ Method
 from __future__ import annotations
 
 import json
+import logging
 import math
+import os
 from dataclasses import dataclass, field
 
 import numpy as np
 from scipy import signal
+
+log = logging.getLogger("acoustic_ir")
 
 # ----------------------------------------------------------------------------
 # Constants
@@ -418,7 +422,7 @@ def align_two_device(x, y, fs, lead_ms=5.0, prior_ppm=None):
                 if abs(est2[1]) < 2:
                     break
         except Exception:
-            pass
+            log.debug("align_two_device: ignored error", exc_info=True)
     # absolute offset: with the drift removed, find the direct sound in the IR
     # (high band, phase-only + coherence weighted, so body resonances can't pull it)
     try:
@@ -443,7 +447,7 @@ def align_two_device(x, y, fs, lead_ms=5.0, prior_ppm=None):
                 a += shift
                 z = warp_delay(y, a, ppm * 1e-6, n_out, lead)
     except Exception:
-        pass
+        log.debug("align_two_device: ignored error", exc_info=True)
     t = np.arange(n_out)
     src = t + a + ppm * 1e-6 * t - lead
     ok = (src >= 0) & (src < len(y) - 1)
@@ -1354,14 +1358,16 @@ def write_c_header(path, h, fs, name):
     for i in range(0, len(h), 8):
         lines.append("    " + ", ".join(f"{v:.9e}f" for v in h[i:i + 8]) + ",")
     lines.append("};")
-    with open(path, "w") as fh:
-        fh.write("\n".join(lines) + "\n")
+    def w(tmp):
+        with open(tmp, "w") as fh:
+            fh.write("\n".join(lines) + "\n")
+    _atomic(path, w)
     return ident
 
 
 def write_bin(path, h):
     """Raw little-endian float32 samples (easy to load from SD/QSPI on a microcontroller)."""
-    np.asarray(h, "<f4").tofile(path)
+    _atomic(path, lambda tmp: np.asarray(h, "<f4").tofile(tmp))
 
 
 def loudness_ref_at(master, fs_dst):
@@ -1382,10 +1388,22 @@ def loudness_ref(master, fs_dst=48000):
     return float(np.mean(R[m]))
 
 
+def _atomic(path, write):
+    """Write via a temporary file + rename, so a crash never leaves a half-written file."""
+    root, ext = os.path.splitext(str(path))
+    tmp = f"{root}.tmp{os.getpid()}{ext}"
+    try:
+        write(tmp)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
 def write_wav(path, h, fs, bits=24):
     import soundfile as sf
     sub = {16: "PCM_16", 24: "PCM_24", 32: "FLOAT"}[bits]
-    sf.write(path, np.asarray(h, np.float64), int(fs), subtype=sub)
+    _atomic(path, lambda tmp: sf.write(tmp, np.asarray(h, np.float64), int(fs), subtype=sub, format="WAV"))
 
 
 # ----------------------------------------------------------------------------

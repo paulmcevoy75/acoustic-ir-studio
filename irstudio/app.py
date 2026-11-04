@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import queue
 import sys
+import threading
 import time
 import traceback
 
@@ -44,6 +45,7 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
         try:                                   # use more of the screen when there is room
             sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         except Exception:
+            log.debug("__init__: ignored error", exc_info=True)
             sw, sh = 1280, 820
         self.compact = sh < 900                 # 13-14" laptops (or big Windows scaling)
         if sw < 1400 or sh < 900:
@@ -139,6 +141,7 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
         try:
             txt = str(w.cget("text"))
         except Exception:
+            log.debug("_auto_tips: ignored error", exc_info=True)
             txt = ""
         tip = TEXT_TIPS.get(txt.strip())
         if tip and not getattr(w, "_has_tip", False):
@@ -262,7 +265,7 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
         try:
             self.autosave()
         except Exception:
-            pass
+            log.debug("report_callback_exception: ignored error", exc_info=True)
         if time.time() - self._err_shown > 2:
             self._err_shown = time.time()
             messagebox.showerror(APP_NAME, f"Something went wrong: {val}\n\nYour session is "
@@ -340,6 +343,22 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
                     self.stop_record()
         self._after_id = self.after(60, self._tick)
 
+    def _background(self, fn):
+        """Run fn on a worker thread that shutdown waits for (so files are never cut off)."""
+        t = threading.Thread(target=fn, daemon=True)
+        self._bg_threads = [x for x in getattr(self, "_bg_threads", []) if x.is_alive()] + [t]
+        t.start()
+        return t
+
+    def _finish_background(self, timeout=60):
+        """Before closing: let a take finish analysing/saving, and any background save finish."""
+        t0 = time.time()
+        while self.busy and time.time() - t0 < timeout:
+            self.update()
+            time.sleep(0.05)
+        for t in getattr(self, "_bg_threads", []):
+            t.join(timeout=max(0.1, timeout - (time.time() - t0)))
+
     def _quit(self):
         if self.rig.recording:
             if not messagebox.askyesno(APP_NAME, "You're recording - stop and keep this take before "
@@ -351,23 +370,24 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
                 while self.busy and time.time() - t0 < 60:
                     self.update()
                     time.sleep(0.05)
+        self._finish_background()
         try:
             self.autosave(wait=True)
             if self.autosave_live:
                 self._write_state(clean=True)
             log.info("clean exit")
         except Exception:
-            pass
+            log.debug("_quit: ignored error", exc_info=True)
         try:
             self.after_cancel(self._after_id)
         except Exception:
-            pass
+            log.debug("_quit: ignored error", exc_info=True)
         try:
             if self._aud_tick_job is not None:
                 self.after_cancel(self._aud_tick_job)
             self.player.stop()
         except Exception:
-            pass
+            log.debug("_quit: ignored error", exc_info=True)
         try:
             self.rig.stop()
             if audio.sd:
@@ -381,7 +401,7 @@ def main():
         import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except Exception:
-        pass
+        log.debug("main: ignored error", exc_info=True)
     setup_logging()
     try:
         app = App()

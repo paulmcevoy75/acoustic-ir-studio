@@ -17,7 +17,7 @@ from tkinter import filedialog
 from tkinter import messagebox
 
 from . import engine as E
-from .config import APP_NAME, AUTOSAVE_DIR, AUTOSAVE_PREV, ROLES, SLOTS, log
+from .config import APP_NAME, AUTOSAVE_DIR, AUTOSAVE_PREV, ROLES, SLOTS, log, write_atomic, write_json
 from .util import safe_name
 
 
@@ -69,8 +69,10 @@ class ProjectFiles:
 
     @staticmethod
     def _write_npz(path, d):
-        with open(path, "wb") as fh:
-            np.savez_compressed(fh, **d)
+        def w(tmp):
+            with open(tmp, "wb") as fh:
+                np.savez_compressed(fh, **d)
+        write_atomic(path, w)
 
     def _project_dict(self, include_demo=True):
         d = {"settings": np.array(json.dumps(self._settings()))}
@@ -243,17 +245,15 @@ class ProjectFiles:
             with open(self._state_path(folder)) as fh:
                 return json.load(fh)
         except Exception:
+            log.debug("_read_state: ignored error", exc_info=True)
             return None
 
     def _write_state(self, **kw):
         st = self._read_state() or {}
         st.update(kw)
         try:
-            tmp = self._state_path() + ".tmp"
-            with open(tmp, "w") as fh:
-                json.dump(st, fh, indent=2)
-            os.replace(tmp, self._state_path())
-        except Exception:
+            write_json(self._state_path(), st)
+        except OSError:
             log.exception("state write failed")
 
     def _begin_autosave_session(self):
@@ -293,14 +293,10 @@ class ProjectFiles:
         def work():
             with self._save_lock:
                 try:
-                    p = os.path.join(AUTOSAVE_DIR, "session.irproject")
-                    tmp = p + ".tmp"
-                    self._write_npz(tmp, d)
-                    os.replace(tmp, p)
+                    self._write_npz(os.path.join(AUTOSAVE_DIR, "session.irproject"), d)
                 except Exception:
                     log.exception("autosave failed")
-        t = threading.Thread(target=work, daemon=True)
-        t.start()
+        t = self._background(work)
         if wait:
             t.join(timeout=60)
         self._write_state(updated=time.strftime("%Y-%m-%d %H:%M:%S"), takes=n, clean=False)
@@ -318,12 +314,12 @@ class ProjectFiles:
             for k, c in enumerate(chans):
                 a[:len(c), k] = c
             base = os.path.join(AUTOSAVE_DIR, "takes", f"take_{idx:03d}")
-            sf.write(base + ".flac", np.clip(a, -1, 1), fs, subtype="PCM_24")
+            write_atomic(base + ".flac", lambda tmp: sf.write(tmp, np.clip(a, -1, 1), fs, subtype="PCM_24",
+                                                               format="FLAC"))
             meta = {"label": label, "fs": fs, "mics": list(mics.keys()), "extras": list(extras.keys()),
                     "two_device": {s: bool(t) for s, (_, t) in mics.items()},
                     "lengths": [len(c) for c in chans], "time": time.strftime("%H:%M:%S")}
-            with open(base + ".json", "w") as fh:
-                json.dump(meta, fh)
+            write_json(base + ".json", meta)
         except Exception:
             log.exception("saving raw take failed")
 
@@ -350,7 +346,6 @@ class ProjectFiles:
                                      if f.endswith(".json")]) if os.path.isdir(
                 os.path.join(AUTOSAVE_DIR, "takes")) else 0
             self._write_state(clean=False)
-            n = max((len(self.acc[s].takes) for s in SLOTS if self.acc[s] is not None), default=0)
             self.logln(f"Reopened the last session - carry on from step {min(self.step_i + 1, len(self.steps()))}. "
                        "New takes are added to it.")
             self.nb.select(self.tab_cap)
@@ -431,4 +426,4 @@ class ProjectFiles:
                     log.exception("recover %s", base)
                     self.q.put(("error", f"[{base}] {exc}", ""))
             self.q.put(("recovered", n))
-        threading.Thread(target=work, daemon=True).start()
+        self._background(work)

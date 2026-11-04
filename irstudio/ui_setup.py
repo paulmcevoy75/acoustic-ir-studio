@@ -18,8 +18,11 @@ from . import audio
 from . import engine as E
 from . import win_volume as WV
 from .audio import list_devices, list_mono_inputs
-from .config import APP_NAME, AUTHOR, DEVICES_FILE, LINKS, MEAS_MIC_HINTS, ROLES, ROLE_BASE, SLOTS, STEPS_FILE
+from .config import APP_NAME, AUTHOR, DEVICES_FILE, LINKS, MEAS_MIC_HINTS, ROLES, ROLE_BASE, SLOTS, STEPS_FILE, write_json
 from .util import dev_family, short_dev
+import logging
+
+log = logging.getLogger("acoustic_ir")
 
 
 class SetupTab:
@@ -147,7 +150,7 @@ class SetupTab:
                 audio.sd._terminate()
                 audio.sd._initialize()
             except Exception:
-                pass
+                log.debug("_refresh_devices: ignored error", exc_info=True)
             apis = ["All"] + [a["name"] for a in audio.sd.query_hostapis()]
             self.api_cb["values"] = apis
             if self.api.get() not in apis:
@@ -161,14 +164,14 @@ class SetupTab:
             with open(DEVICES_FILE) as fh:
                 saved = json.load(fh)
         except Exception:
-            pass
+            log.debug("_refresh_devices: ignored error", exc_info=True)
 
         # the Interface = the input device with the most channels; a USB Mic = a 1-2 input
         # device that isn't the Interface
         # Windows often lists one interface as several 2-input devices ("Analogue 1 + 2 (iD..)",
         # "Analogue 3 + 4 (iD..)"), so count inputs per device FAMILY (the name in brackets)
         nch, fam_ch = {}, {}
-        for _, i, c, nm in ins:
+        for _, _dev, c, nm in ins:
             nch[nm] = max(nch.get(nm, 0), c + 1)
         for nm, c in nch.items():
             fam_ch[dev_family(nm)] = fam_ch.get(dev_family(nm), 0) + c
@@ -218,12 +221,12 @@ class SetupTab:
             self.dev_hint.configure(text="")
         for v in self.inp.values():
             v["cb"]["values"] = labels
-        self.out_cb["values"] = [l for l, _, _ in outs]
+        self.out_cb["values"] = [lab for lab, _, _ in outs]
         if hasattr(self, "aud_out_cb"):
             self.aud_out_cb["values"] = self.out_cb["values"]
         if self.out_dev.get() not in self.out_cb["values"] and outs:
             stem = (self.iface_name.split("(")[-1].rstrip(") ").lower() if self.iface_name else "")
-            pick = next((l for l, _, _ in outs if stem and stem in l.lower()), outs[0][0])
+            pick = next((lab for lab, _, _ in outs if stem and stem in lab.lower()), outs[0][0])
             self.out_dev.set(pick)
         self._inputs_changed()
 
@@ -296,10 +299,9 @@ class SetupTab:
             d[role] = {"name": m[2] if m else "", "ch": (m[1] + 1) if m else 1,
                        "on": bool(v["on"].get()), "label": self.inp_label[role].get()}
         try:
-            with open(DEVICES_FILE, "w") as fh:
-                json.dump(d, fh, indent=2)
-        except Exception:
-            pass
+            write_json(DEVICES_FILE, d)
+        except OSError:
+            log.warning("couldn't save the device choices", exc_info=True)
 
     def input_config(self):
         nice = {r: self.mic_name(r) for r in ROLES}
@@ -332,6 +334,7 @@ class SetupTab:
             with open(STEPS_FILE) as fh:
                 return json.load(fh)
         except Exception:
+            log.debug("_step_overrides: ignored error", exc_info=True)
             return {}
 
     def _session_key(self):
@@ -385,7 +388,7 @@ class SetupTab:
                 t = sum(int(v.get()) for v, _ in vars_.values())
                 tot.configure(text=f"Total: {t // 60} min {t % 60} s + free play")
             except Exception:
-                pass
+                log.debug("total: ignored error", exc_info=True)
         for v, _ in vars_.values():
             v.trace_add("write", total)
         total()
@@ -393,9 +396,8 @@ class SetupTab:
         def save():
             try:
                 ov_all[key] = {n: int(v.get()) for n, (v, d) in vars_.items() if int(v.get()) != d}
-                with open(STEPS_FILE, "w") as fh:
-                    json.dump(ov_all, fh, indent=2)
-            except Exception as exc:
+                write_json(STEPS_FILE, ov_all)
+            except (OSError, ValueError, tk.TclError) as exc:
                 messagebox.showerror(APP_NAME, f"Couldn't save: {exc}", parent=win)
                 return
             win.destroy()

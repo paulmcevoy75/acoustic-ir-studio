@@ -87,6 +87,7 @@ def _ffmpeg_exe():
         import imageio_ffmpeg
         return imageio_ffmpeg.get_ffmpeg_exe()
     except Exception:
+        log.debug("_ffmpeg_exe: ignored error", exc_info=True)
         return shutil.which("ffmpeg")
 
 
@@ -99,7 +100,7 @@ def load_any_audio(path, max_s=900):
         if len(a):
             return a, fs
     except Exception:
-        pass
+        log.debug("load_any_audio: ignored error", exc_info=True)
     exe = _ffmpeg_exe()
     if not exe:
         raise RuntimeError("this file type needs the ffmpeg decoder, which isn't available")

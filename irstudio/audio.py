@@ -16,6 +16,7 @@ from .config import log
 try:
     import sounddevice as sd
 except Exception as exc:          # pragma: no cover - shown in UI
+    log.debug("module: ignored error", exc_info=True)
     sd = None
     SD_ERROR = str(exc)
 else:
@@ -107,7 +108,7 @@ class AuditionPlayer:
             try:
                 nch = max(1, min(2, sd.query_devices(dev)["max_output_channels"]))
             except Exception:
-                pass
+                log.debug("start: ignored error", exc_info=True)
             kw = dict(device=dev, channels=nch, samplerate=self.fs, dtype="float32",
                       blocksize=2048, latency="high", callback=self._cb)
             try:
@@ -116,12 +117,13 @@ class AuditionPlayer:
                 try:                          # let Windows convert the rate (WASAPI shared mode)
                     st = sd.OutputStream(extra_settings=sd.WasapiSettings(auto_convert=True), **kw)
                 except Exception:
-                    raise first
+                    raise first from None
             st.start()
             self.stream, self.stream_key = st, key
             try:
                 self.dev_name = sd.query_devices(dev)["name"] if dev is not None else "default output"
             except Exception:
+                log.debug("start: ignored error", exc_info=True)
                 self.dev_name = str(dev)
             log.info("audition output opened: %s @ %d Hz", self.dev_name, self.fs)
         self.playing = True
@@ -139,7 +141,7 @@ class AuditionPlayer:
                 st.stop()
                 st.close()
             except Exception:
-                pass
+                log.debug("_close: ignored error", exc_info=True)
 
 
 class AudioRig:
@@ -222,12 +224,13 @@ class AudioRig:
         try:
             nch = max(1, min(2, sd.query_devices(out_dev)["max_output_channels"]))
         except Exception:
-            pass
+            log.debug("start_monitor: ignored error", exc_info=True)
         kw = dict(device=out_dev, channels=nch, samplerate=fs, dtype="float32",
                   blocksize=256, callback=self._out_cb)
         try:
             st = sd.OutputStream(**kw)
         except Exception:
+            log.debug("start_monitor: ignored error", exc_info=True)
             kw["extra_settings"] = sd.WasapiSettings(auto_convert=True)
             st = sd.OutputStream(**kw)
         self.mon_stream = st
@@ -245,7 +248,7 @@ class AudioRig:
                 st.stop()
                 st.close()
             except Exception:
-                pass
+                log.debug("stop_monitor: ignored error", exc_info=True)
         self.ring = {}
 
     def _out_cb(self, outdata, frames, t, status):
@@ -326,7 +329,7 @@ class AudioRig:
                 st.stop()
                 st.close()
             except Exception:
-                pass
+                log.debug("stop: ignored error", exc_info=True)
         self.streams = []
 
     def begin(self):

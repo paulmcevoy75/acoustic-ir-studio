@@ -25,6 +25,7 @@ def available():
         import pycaw.pycaw  # noqa: F401
         return True
     except Exception:
+        log.debug("available: ignored error", exc_info=True)
         return False
 
 
@@ -74,6 +75,7 @@ def get_level(device_name):
     try:
         return float(v.GetMasterVolumeLevelScalar()) * 100.0
     except Exception:
+        log.debug("get_level: ignored error", exc_info=True)
         return None
 
 
@@ -95,9 +97,11 @@ def open_recording_settings():
         subprocess.Popen(["control", "mmsys.cpl,,1"])
         return True
     except Exception:
+        log.debug("open_recording_settings: ignored error", exc_info=True)
         try:
             import os
             os.startfile("ms-settings:sound")
             return True
         except Exception:
+            log.debug("open_recording_settings: ignored error", exc_info=True)
             return False
