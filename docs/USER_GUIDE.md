@@ -168,4 +168,4 @@ If an IR is shorter than a target's limit, the whole IR is exported with no padd
 
 If the app ever closes unexpectedly, start it with **Run with error window (troubleshooting).bat**. It keeps a console open that shows the error. Also send `logs\app.log` and `logs\crash.log`.
 
-`self_test.bat` runs the built-in accuracy test on simulated guitar recordings with a known answer.
+`self_test.bat` runs the full automatic test suite: the IR maths against simulated guitar recordings with a known answer, plus the whole app on a simulated sound card.

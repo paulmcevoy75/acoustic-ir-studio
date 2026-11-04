@@ -1,8 +1,10 @@
-numpy>=1.26
-scipy>=1.11
-matplotlib>=3.8
-sounddevice>=0.4.6
-soundfile>=0.12
+# Libraries the app needs (ranges that are known to work). For the exact versions
+# the Windows release is built with, see requirements-lock.txt.
+numpy>=1.26,<3
+scipy>=1.11,<2
+matplotlib>=3.8,<4
+sounddevice>=0.4.6,<1
+soundfile>=0.12,<1
+imageio-ffmpeg>=0.4.9,<1
 pycaw>=20230407; sys_platform == "win32"
-comtypes>=1.2; sys_platform == "win32"
-imageio-ffmpeg>=0.4.9
+comtypes>=1.2,<2; sys_platform == "win32"

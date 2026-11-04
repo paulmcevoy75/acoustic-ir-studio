@@ -1,0 +1,21 @@
+# Exact versions used for the Windows release build (Python 3.12). Update deliberately:
+# install requirements.txt in a fresh venv, run the tests, then copy the versions here.
+numpy==2.5.4
+scipy==1.18.1
+matplotlib==3.11.2
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.68.0
+kiwisolver==1.5.1
+pillow==13.0.0
+pyparsing==3.3.3
+python-dateutil==4.0.0
+sounddevice==0.5.6
+cffi==2.1.1
+pycparser==3.12
+soundfile==0.14.0
+imageio-ffmpeg==0.8.1
+pycaw==20260927; sys_platform == "win32"
+comtypes==1.4.17; sys_platform == "win32"
+psutil==7.2.2
+typing-extensions==4.16.0

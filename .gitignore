@@ -6,8 +6,10 @@ devices.json
 step_lengths.json
 *.irproject
 *.irsession
-*.flac
-*.wav
+# recordings / exports dropped in the app folder (test fixtures under tests/ are allowed)
+/*.flac
+/*.wav
+/*IRs/
 
 # Python / build output
 .venv/
@@ -16,5 +18,7 @@ __pycache__/
 build/
 dist/
 *.spec
+.pytest_cache/
+.ruff_cache/
 custom_targets.json
 settings.json

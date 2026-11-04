@@ -41,6 +41,14 @@ The [User Guide](docs/USER_GUIDE.md) covers every feature. Hover over any contro
 
 IRs export as WAV, plus raw `.bin` and C header (`.h`) files for DIY firmware. The format is described in [docs/daisy-ir-format.md](docs/daisy-ir-format.md).
 
+## Platform
+
+Acoustic IR Studio is a **Windows 10/11** app. The download is Windows-only, and the input-level control for USB mics uses Windows' audio API. The source code also runs on Linux, where the automatic tests run on every change. That's useful for development, but Linux isn't a supported way to use it. macOS hasn't been tested.
+
+## For developers
+
+Python 3.10+. Install with `pip install -r requirements.txt -r requirements-dev.txt`, start with `python acoustic_ir_studio.py`, and test with `pytest` (on Linux use `xvfb-run -a pytest`). The tests include the whole app running on a simulated sound card. [CONTRIBUTING.md](CONTRIBUTING.md) explains how the code is laid out.
+
 ## Help and feedback
 
 Found a bug or have an idea? [Open an issue](https://github.com/paulmcevoy75/acoustic-ir-studio/issues). If something went wrong, attach `app.log` (in the app: **Help > Open logs folder**).
