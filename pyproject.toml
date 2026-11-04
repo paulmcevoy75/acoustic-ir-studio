@@ -1,0 +1,63 @@
+[project]
+name = "acoustic-ir-studio"
+dynamic = ["version"]
+description = "Make an acoustic guitar's piezo sound like a microphone: builds IRs for IR pedals and DIY convolvers."
+readme = "README.md"
+license = "GPL-3.0-or-later"
+authors = [{ name = "Paul McEvoy" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26,<3",
+    "scipy>=1.11,<2",
+    "matplotlib>=3.8,<4",
+    "sounddevice>=0.4.6,<1",
+    "soundfile>=0.12,<1",
+    "imageio-ffmpeg>=0.4.9,<1",
+    "pycaw>=20230407; sys_platform == 'win32'",
+    "comtypes>=1.2,<2; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/paulmcevoy75/acoustic-ir-studio"
+Author = "https://paulmcevoyguitars.com"
+
+[project.gui-scripts]
+acoustic-ir-studio = "irstudio.app:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["irstudio"]
+
+[tool.setuptools.dynamic]
+version = { attr = "irstudio.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+markers = ["gui: opens the real app window (needs a display)"]
+filterwarnings = ["ignore::DeprecationWarning:matplotlib.*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# real problems only: pyflakes, syntax/indentation errors, bugbear, and except-without-logging
+select = ["F", "E9", "E7", "B", "BLE001", "S110"]
+ignore = [
+    "E701", "E702",   # a few compact one-liners in the tests
+    "E731",           # small lambdas assigned to names
+    "B008",           # function calls in defaults (Tk variables)
+    "B023",           # loop variables in Tk callbacks are bound deliberately with defaults
+    "B905",           # zip() strict= not needed
+    "BLE001",         # broad 'except Exception' is deliberate at UI/audio boundaries - but must log (S110)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S110", "B"]

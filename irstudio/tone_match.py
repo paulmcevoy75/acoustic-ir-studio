@@ -25,7 +25,7 @@ import math
 import numpy as np
 from scipy import signal
 
-import ir_engine as E
+from . import engine as E
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 

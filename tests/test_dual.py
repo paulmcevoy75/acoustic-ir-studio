@@ -3,11 +3,11 @@
 # This program comes with ABSOLUTELY NO WARRANTY.
 """Dual piezo: two pickup elements that hear two independent sources differently.
 A single IR on the summed pickup can't reproduce the mic; the IR pair should."""
-import os, sys
 import numpy as np
 from scipy import signal
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-import ir_engine as E
+import pytest
+
+from irstudio import engine as E
 
 rng = np.random.default_rng(7)
 fs = 48000
@@ -70,37 +70,53 @@ def residual(pred, y):
     return best
 
 
-ok = True
-for correlated in (False, True):
+def run(correlated):
     acc = E.Accumulator(fs, 65536)
     for k in range(6):
         sa, sb = sources(12)
         x1, x2, y = mix(sa, sb, correlated)
-        rep = acc.process_take(x1, y, f"t{k}", x2=x2)
+        acc.process_take(x1, y, f"t{k}", x2=x2)
     p = E.BuildParams(master_ms=250)
     single = E.build_master(acc, None, p)
     pair = E.build_dual(acc, None, p, single)
-    # validation take
     sa, sb = sources(10)
     x1, x2, y = mix(sa, sb, correlated)
     pd = signal.fftconvolve(x1, pair["h1"])[:len(y)] + signal.fftconvolve(x2, pair["h2"])[:len(y)]
     hs = np.fft.irfft(acc.H(), acc.nfft)[: int(0.25 * fs)]          # measured-phase single IR
     ps = signal.fftconvolve(x1 + x2, hs)[:len(y)]
-    rd, rs = residual(pd, y), residual(ps, y)
-    g = acc.dual_gain()
-    gmax = max(b["gain_db"] for b in g)
-    gmed = float(np.median([b["gain_db"] for b in g if 100 <= b["center"] <= 5000]))
-    print(f"{'correlated ' if correlated else 'independent'}: single IR residual {rs:6.1f} dB | "
-          f"IR pair residual {rd:6.1f} dB | reported gain median {gmed:4.1f} dB, max {gmax:4.1f} dB")
-    if not correlated:
-        ok &= rd < rs - 6 and gmed > 3
-    else:
-        ok &= abs(rd - rs) < 3 and gmed < 1.0
-    # persistence round trip
+    gain = float(np.median([b["gain_db"] for b in acc.dual_gain() if 100 <= b["center"] <= 5000]))
+    return acc, pair, residual(pd, y), residual(ps, y), gain
+
+
+@pytest.fixture(scope="module")
+def independent():
+    return run(False)
+
+
+@pytest.fixture(scope="module")
+def correlated():
+    return run(True)
+
+
+def test_pair_beats_one_ir_when_elements_differ(independent):
+    _, _, rd, rs, gain = independent
+    assert rd < rs - 6          # the IR pair reproduces the mic far better
+    assert gain > 3             # ...and the app reports a real gain
+
+
+def test_pair_is_safe_when_elements_say_the_same(correlated):
+    _, _, rd, rs, gain = correlated
+    assert abs(rd - rs) < 3     # no worse than one IR on the summed pickup
+    assert gain < 1.0           # ...and the app says there's nothing to gain
+
+
+def test_dual_data_survives_saving(independent):
+    acc = independent[0]
     acc2 = E.Accumulator.from_dict(acc.to_dict("A"), "A")
-    ok &= acc2.has_dual() and np.allclose(acc2.dual["S1y"], acc.dual["S1y"])
-    # pedal fit
-    fp = E.fit_pair(pair, 44100, 1024)
-    ok &= len(fp["h1"]) == 1024 and np.max(np.abs(fp["h1"])) <= 1
-print("DUAL TEST", "PASS" if ok else "FAIL")
-sys.exit(0 if ok else 1)
+    assert acc2.has_dual() and np.allclose(acc2.dual["S1y"], acc.dual["S1y"])
+
+
+def test_pair_fits_a_pedal(independent):
+    fp = E.fit_pair(independent[1], 44100, 1024)
+    assert len(fp["h1"]) == len(fp["h2"]) == 1024
+    assert max(np.max(np.abs(fp["h1"])), np.max(np.abs(fp["h2"]))) <= 1
