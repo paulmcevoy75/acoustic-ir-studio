@@ -26,7 +26,7 @@ jobs:
       - name: Lint
         run: ruff check irstudio tests acoustic_ir_studio.py
       - name: Tests (including the app on a fake sound card)
-        run: xvfb-run -a pytest -q
+        run: xvfb-run -a pytest -q -rs
 
   build-windows:
     needs: test-linux
@@ -44,7 +44,7 @@ jobs:
           pip install -r requirements-lock.txt -r requirements-dev.txt
 
       - name: Tests on Windows
-        run: pytest -q
+        run: pytest -q -rs
 
       - name: Build AcousticIRStudio.exe
         run: >
@@ -106,7 +106,7 @@ jobs:
           pip install -r requirements-lock.txt -r requirements-dev.txt
 
       - name: Tests on macOS
-        run: pytest -q
+        run: pytest -q -rs
 
       - name: Build the Mac app
         run: |
