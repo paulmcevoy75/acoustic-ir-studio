@@ -204,8 +204,19 @@ def app(fake_sd, data_dir, monkeypatch):
     monkeypatch.setattr(messagebox, "showerror", lambda *a, **k: msgs.append(("error", a[1] if len(a) > 1 else a)))
     monkeypatch.setattr(messagebox, "askyesno", lambda *a, **k: True)
     monkeypatch.setattr(messagebox, "askokcancel", lambda *a, **k: True)
+    import gc
+    import tkinter
     from irstudio.app import App
-    a = App()
+    for attempt in range(5):
+        # Windows' Tcl sometimes can't re-read init.tcl right after the previous window closed
+        try:
+            a = App()
+            break
+        except tkinter.TclError as exc:
+            if "init.tcl" not in str(exc) or attempt == 4:
+                raise
+            gc.collect()
+            time.sleep(1.0)
     a.update()
     a.test_messages = msgs
     fake_sd.is_recording = lambda: a.rig.recording
@@ -214,3 +225,5 @@ def app(fake_sd, data_dir, monkeypatch):
         a._quit()
     except Exception:
         pass
+    import gc
+    gc.collect()
