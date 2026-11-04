@@ -195,11 +195,9 @@ def data_dir(tmp_path, monkeypatch):
 @pytest.fixture
 def app(fake_sd, data_dir, monkeypatch):
     """The real main window, on a fake sound card, with dialogs answered automatically."""
-    tk = pytest.importorskip("tkinter")
-    try:
-        tk.Tk().destroy()
-    except tk.TclError:
-        pytest.skip("no display available for the window tests")
+    import sys
+    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
+        pytest.skip("no display available for the window tests (use xvfb-run)")
     from tkinter import messagebox
     msgs = []
     monkeypatch.setattr(messagebox, "showinfo", lambda *a, **k: msgs.append(("info", a[1] if len(a) > 1 else a)))
