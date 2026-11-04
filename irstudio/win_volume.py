@@ -92,7 +92,19 @@ def set_level(device_name, pct):
 
 
 def open_recording_settings():
-    """Opens Windows' classic Sound > Recording dialog (Properties > Levels)."""
+    """Opens Windows' classic Sound > Recording dialog (Properties > Levels), or the Mac's
+    Sound settings."""
+    if sys.platform == "darwin":
+        for url in ("x-apple.systempreferences:com.apple.Sound-Settings.extension?input",
+                    "x-apple.systempreferences:com.apple.preference.sound?input"):
+            try:
+                subprocess.Popen(["open", url])
+                return True
+            except OSError:
+                log.debug("couldn't open %s", url, exc_info=True)
+        return False
+    if sys.platform != "win32":
+        return False
     try:
         subprocess.Popen(["control", "mmsys.cpl,,1"])
         return True

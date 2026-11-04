@@ -4,6 +4,7 @@
 """Audio rig, audition player, settings and small helpers (no window needed)."""
 
 import json
+import os
 import time
 
 import numpy as np
@@ -114,3 +115,11 @@ def test_custom_targets_are_kept_and_presets_are_not_saved(data_dir):
 def test_version_info_without_a_release_stamp():
     b = config.build_info()
     assert set(b) == {"version", "date", "commit", "release"}
+
+
+def test_data_folder_falls_back_when_the_app_folder_is_read_only(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "HERE", str(tmp_path / "does-not-exist" / "x"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setattr(config.os.path, "expanduser", lambda p: p.replace("~", str(tmp_path)))
+    d = config._data_dir()
+    assert os.path.isdir(d) and str(tmp_path) in d

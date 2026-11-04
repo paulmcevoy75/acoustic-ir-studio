@@ -14,6 +14,9 @@ TEXT_TIPS = {
              "the audition buttons. Leave blank to show the device and input number.",
     "Calibration file...": "For a measurement mic: load its calibration file (.txt/.cal from the maker) so "
                            "its own coloration is removed. Not needed for normal mics.",
+    "Mac sound settings...": "Opens the Mac's Sound settings (Input), to set the level of a USB Mic or "
+                             "other device without a gain knob. Interface inputs use their gain knobs.",
+    "System sound settings...": "Opens the system sound settings, to set the level of a USB Mic.",
     "Windows input level...": "Opens Windows' recording settings for devices without a gain knob (e.g. a "
                               "USB Mic). Interface inputs use their hardware gain knobs.",
     "Windows input levels...": "Opens Windows' recording settings (Properties > Levels) to set a USB Mic's "

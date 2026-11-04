@@ -2,7 +2,7 @@
 
 **Make your acoustic guitar's piezo sound like a microphone.**
 
-Acoustic IR Studio records your pickup and a mic at the same time, works out exactly how they differ, and turns that into an impulse response (IR) for your IR pedal. It's a free Windows app, and it doesn't need Reaper or any other DAW.
+Acoustic IR Studio records your pickup and a mic at the same time, works out exactly how they differ, and turns that into an impulse response (IR) for your IR pedal. It's a free app for Windows and Mac, and it doesn't need Reaper or any other DAW.
 
 Created by **Paul McEvoy**: [paulmcevoyguitars.com](https://paulmcevoyguitars.com) · [Instagram](https://www.instagram.com/paulmcevoyguitars/) · [YouTube](https://www.youtube.com/@paulmcevoyguitars)
 Thank you to [Vic Wong](https://www.paniquejazz.com/) for the inspiration.
@@ -11,9 +11,10 @@ Thank you to [Vic Wong](https://www.paniquejazz.com/) for the inspiration.
 
 ## Download
 
-**[⬇ Get the latest version for Windows](https://github.com/paulmcevoy75/acoustic-ir-studio/releases/latest)**. Unzip it and run `AcousticIRStudio.exe`.
+**[⬇ Get the latest version](https://github.com/paulmcevoy75/acoustic-ir-studio/releases/latest)**, for Windows or Mac.
 
-Windows may say *"Windows protected your PC"*, because the app isn't code-signed. Click **More info → Run anyway**.
+- **Windows:** download `AcousticIRStudio-windows.zip`, unzip it and run `AcousticIRStudio.exe`. If Windows says *"Windows protected your PC"* (the app isn't code-signed), click **More info → Run anyway**.
+- **Mac:** download `AcousticIRStudio-mac-apple-silicon.zip` (M1 and later) or `…-mac-intel.zip` (older Macs) and unzip it. The first time, double-click the app, click **Done**, then go to **System Settings → Privacy & Security → Open Anyway** (the app isn't registered with Apple yet). Allow the microphone when asked.
 
 ## What it does
 
@@ -43,7 +44,7 @@ IRs export as WAV, plus raw `.bin` and C header (`.h`) files for DIY firmware. T
 
 ## Platform
 
-Acoustic IR Studio is a **Windows 10/11** app. The download is Windows-only, and the input-level control for USB mics uses Windows' audio API. The source code also runs on Linux, where the automatic tests run on every change. That's useful for development, but Linux isn't a supported way to use it. macOS hasn't been tested.
+Acoustic IR Studio runs on **Windows 10/11** and **macOS** (Apple Silicon and Intel). The in-app level slider for USB mics is Windows-only; on a Mac, set levels in Sound settings (there's a button for it). The automatic tests run on Windows, macOS and Linux for every change. Linux isn't a supported way to use the app, but the source runs there for development.
 
 ## For developers
 

@@ -22,7 +22,7 @@ from . import audio
 from . import engine as E
 from . import win_volume as WV
 from .audio import dev_index
-from .config import APP_NAME, ROLES, SLOTS, SLOT_LABEL, STATUS_COL, log
+from .config import APP_NAME, LEVELS_BUTTON, ROLES, SLOTS, SLOT_LABEL, STATUS_COL, log
 from .util import dev_family
 
 
@@ -56,7 +56,7 @@ class CaptureTab:
         self.mon_master_lab = ttk.Label(mon, text="-6 dB", width=7)
         self.mon_master_lab.pack(side="left")
         ttk.Button(mon, text="Reset peaks", command=self.reset_peaks).pack(side="right")
-        ttk.Button(mon, text="Windows input levels...", command=WV.open_recording_settings).pack(side="right", padx=6)
+        ttk.Button(mon, text=LEVELS_BUTTON, command=WV.open_recording_settings).pack(side="right", padx=6)
 
         mrow = ttk.Frame(t)
         mrow.pack(fill="x", padx=10)

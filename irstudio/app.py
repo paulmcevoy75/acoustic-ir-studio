@@ -255,8 +255,13 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
     def _open_folder(self, path):
         os.makedirs(path, exist_ok=True)
         try:
-            os.startfile(path)            # Windows
+            if sys.platform == "win32":
+                os.startfile(path)
+            else:
+                import subprocess
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
         except Exception:
+            log.debug("couldn't open %s", path, exc_info=True)
             messagebox.showinfo(APP_NAME, path)
 
     def report_callback_exception(self, exc, val, tb):
@@ -397,11 +402,12 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
 
 
 def main():
-    try:
-        import ctypes
-        ctypes.windll.shcore.SetProcessDpiAwareness(1)
-    except Exception:
-        log.debug("main: ignored error", exc_info=True)
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            log.debug("main: couldn't set DPI awareness", exc_info=True)
     setup_logging()
     try:
         app = App()

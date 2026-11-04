@@ -18,7 +18,8 @@ from . import audio
 from . import engine as E
 from . import win_volume as WV
 from .audio import list_devices, list_mono_inputs
-from .config import APP_NAME, AUTHOR, DEVICES_FILE, LINKS, MEAS_MIC_HINTS, ROLES, ROLE_BASE, SLOTS, STEPS_FILE, write_json
+from .config import (APP_NAME, AUTHOR, DEVICES_FILE, LEVELS_BUTTON, LINKS, MEAS_MIC_HINTS, ROLES, ROLE_BASE, SLOTS,
+                     STEPS_FILE, write_json)
 from .util import dev_family, short_dev
 import logging
 
@@ -52,7 +53,7 @@ class SetupTab:
         cb.bind("<<ComboboxSelected>>", lambda e: self._rate_changed())
         ttk.Label(top, text="   Driver type").pack(side="left")
         apis = ["All"] + ([a["name"] for a in audio.sd.query_hostapis()] if audio.sd else [])
-        default_api = "Windows WASAPI" if "Windows WASAPI" in apis else "All"
+        default_api = next((a for a in ("Windows WASAPI", "Core Audio") if a in apis), "All")
         self.api = tk.StringVar(value=default_api)
         a = ttk.Combobox(top, values=apis, textvariable=self.api, state="readonly", width=22)
         a.pack(side="left", padx=6)
@@ -99,7 +100,7 @@ class SetupTab:
             v["cb"].bind("<<ComboboxSelected>>", lambda e: self._inputs_changed())
             sub = ttk.Frame(fr)
             sub.grid(row=r + 1, column=1, columnspan=2, sticky="w", pady=(2, 4))
-            self.inp_widgets[role]["winlvl"] = ttk.Button(sub, text="Windows input level...",
+            self.inp_widgets[role]["winlvl"] = ttk.Button(sub, text=LEVELS_BUTTON,
                                                           command=WV.open_recording_settings)
             self.inp_widgets[role]["winlvl"].pack(side="left", padx=(0, 6))
             if role in SLOTS:

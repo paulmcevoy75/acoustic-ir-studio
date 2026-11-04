@@ -81,9 +81,85 @@ jobs:
           name: AcousticIRStudio-windows
           path: AcousticIRStudio-windows.zip
 
+  build-mac:
+    needs: test-linux
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest        # Apple Silicon (M1 and later)
+            arch: apple-silicon
+            optional: false
+          - runner: macos-15-intel      # older Intel Macs
+            arch: intel
+            optional: true
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.optional }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Install (exact versions)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-lock.txt -r requirements-dev.txt
+
+      - name: Tests on macOS
+        run: pytest -q
+
+      - name: Build the Mac app
+        run: |
+          pyinstaller --noconfirm --onedir --windowed --name AcousticIRStudio \
+            --osx-bundle-identifier com.paulmcevoyguitars.acousticirstudio \
+            --collect-all _sounddevice_data --collect-all _soundfile_data --collect-all imageio_ffmpeg \
+            acoustic_ir_studio.py
+          APP=dist/AcousticIRStudio.app
+          # macOS only lets an app use the microphone / audio inputs if it says why
+          plutil -insert NSMicrophoneUsageDescription -string \
+            "Acoustic IR Studio records your instrument and microphones to build impulse responses." \
+            "$APP/Contents/Info.plist"
+          printf '{"version": "1.%s", "commit": "%s", "date": "%s UTC"}' "${{ github.run_number }}" \
+            "${GITHUB_SHA::7}" "$(date -u '+%Y-%m-%d %H:%M')" > "$APP/Contents/MacOS/build_info.json"
+          codesign --force --deep --sign - "$APP"      # ad-hoc signature (required on Apple Silicon)
+
+      - name: Check the packaged app starts (opens every tab, builds a test IR, closes)
+        run: |
+          set +e
+          dist/AcousticIRStudio.app/Contents/MacOS/AcousticIRStudio --selftest
+          code=$?
+          cat "$HOME/Library/Application Support/AcousticIRStudio/logs/app.log" 2>/dev/null | tail -40
+          exit $code
+
+      - name: Zip
+        run: |
+          PKG="Acoustic IR Studio (Mac)"
+          mkdir "$PKG"
+          cp -R dist/AcousticIRStudio.app "$PKG/Acoustic IR Studio.app"
+          cp README.md LICENSE THIRD_PARTY_NOTICES.md "$PKG/"
+          cp docs/USER_GUIDE.md "$PKG/USER_GUIDE.md"
+          cat > "$PKG/HOW TO OPEN.txt" <<'TXT'
+          Acoustic IR Studio for Mac - first time you open it
+
+          This free app isn't registered with Apple, so macOS asks you to confirm it once:
+          1. Drag "Acoustic IR Studio" into your Applications folder (optional), then double-click it.
+             macOS says it can't verify the app - click Done.
+          2. Open System Settings > Privacy & Security, scroll down, and click "Open Anyway"
+             next to Acoustic IR Studio. Confirm with your password if asked.
+          3. When the app asks to use the microphone, click Allow (it needs this to hear your
+             instrument and mics).
+          From then on it opens normally. In the app, Setup > Driver type should be "Core Audio".
+          TXT
+          ditto -c -k --keepParent "$PKG" "AcousticIRStudio-mac-${{ matrix.arch }}.zip"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: AcousticIRStudio-mac-${{ matrix.arch }}
+          path: AcousticIRStudio-mac-${{ matrix.arch }}.zip
+
   release:
     # only after the tests and the build passed, and only for main
-    needs: build-windows
+    needs: [build-windows, build-mac]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -91,7 +167,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: AcousticIRStudio-windows
+          pattern: AcousticIRStudio-*
+          merge-multiple: true
       - name: Publish the release (new tag; earlier releases stay available)
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,9 +177,14 @@ jobs:
           sha="${GITHUB_SHA::7}"
           notes="Version $VERSION, built from commit $sha.
 
-          **Download AcousticIRStudio-windows.zip**, unzip it, and run **AcousticIRStudio.exe** (no Python needed).
+          **Windows:** download **AcousticIRStudio-windows.zip**, unzip it, and run **AcousticIRStudio.exe**.
+          If Windows says 'Windows protected your PC', click More info -> Run anyway (the app isn't code-signed yet).
           To update, unzip the new one over the old folder - your projects, autosaves and settings are kept.
 
-          If Windows says 'Windows protected your PC', click More info -> Run anyway (the app isn't code-signed yet)."
-          gh release create "v$VERSION" AcousticIRStudio-windows.zip --repo "$GITHUB_REPOSITORY" \
+          **Mac:** download **AcousticIRStudio-mac-apple-silicon.zip** (Macs from 2020 on, M1 and later) or
+          **AcousticIRStudio-mac-intel.zip** (older Intel Macs), unzip it, and follow *HOW TO OPEN.txt*:
+          the first time, double-click the app, click Done, then System Settings > Privacy & Security >
+          **Open Anyway**. Allow the microphone when asked."
+          ls -la *.zip
+          gh release create "v$VERSION" *.zip --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --title "Version $VERSION" --notes "$notes" --latest

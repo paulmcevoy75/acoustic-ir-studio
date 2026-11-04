@@ -17,6 +17,8 @@ import traceback
 
 
 import matplotlib
+
+log = logging.getLogger("acoustic_ir")
 matplotlib.rcParams["agg.path.chunksize"] = 10000    # long, dense lines can't overflow the renderer
 matplotlib.rcParams["path.simplify"] = True
 
@@ -84,7 +86,12 @@ ROLE_BASE = {"piezo": "Instrument", "piezo2": "Instrument 2", "A": "Reference Mi
 
 def _data_dir():
     """Folder for logs, autosave and device memory: next to the app if writable,
-    otherwise %LOCALAPPDATA%\\AcousticIRStudio."""
+    otherwise %LOCALAPPDATA%\\AcousticIRStudio. On a Mac, always
+    ~/Library/Application Support/AcousticIRStudio (an app bundle must not be written to)."""
+    if sys.platform == "darwin":
+        d = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "AcousticIRStudio")
+        os.makedirs(d, exist_ok=True)
+        return d
     try:
         test = os.path.join(HERE, ".write_test")
         with open(test, "w") as fh:
@@ -117,6 +124,13 @@ DEVICES_FILE = os.path.join(DATA_DIR, "devices.json")
 
 
 CUSTOM_TARGETS_FILE = os.path.join(DATA_DIR, "custom_targets.json")
+
+
+IS_WINDOWS = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
+# the button that opens the computer's own input-level settings
+LEVELS_BUTTON = "Windows input level..." if IS_WINDOWS else ("Mac sound settings..." if IS_MAC else
+                                                            "System sound settings...")
 
 
 def load_settings():
@@ -160,7 +174,6 @@ def save_settings(**kw):
         log.exception("couldn't save settings")
 
 
-log = logging.getLogger("acoustic_ir")
 
 
 def setup_logging():
