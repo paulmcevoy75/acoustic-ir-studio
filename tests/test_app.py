@@ -178,3 +178,23 @@ def test_bad_output_device_is_reported(app, fake_sd):
     app.out_dev.set("99: Broken")
     app.audition_play()
     assert any(m[0] == "error" and "Broken" in str(m[1]) for m in app.test_messages)
+
+
+def test_finger_noise_tamer_is_off_by_default_and_saved(app, fake_sd, save_to):
+    setup_inputs(app)
+    capture(app, fake_sd, n=2)
+    assert not app.v_tame.get() and app.params().tame_db == 0
+    app.nb.select(app.tab_build)
+    app.build()
+    p_off = app.irm["P"].copy()
+    app.v_tame.set(True)
+    app.v_tame_db.set(6)
+    app.v_tame_hz.set("4000")
+    app.build()
+    f = app.irm["freqs"]
+    drop = 10 * np.log10(np.interp(4000, f, app.irm["P"]) / np.interp(4000, f, p_off))
+    assert -6.5 < drop < -5.5
+    app.save_session()
+    app.v_tame.set(False)
+    app.load_session(save_to)
+    assert app.v_tame.get() and app.params().tame_hz == 4000

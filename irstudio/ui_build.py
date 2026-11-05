@@ -80,6 +80,24 @@ class BuildTab:
                                   state="readonly", width=22), TIPS["phase"])
         row("Full IR length (ms)", ttk.Combobox(p, values=["250", "500", "750", "1000", "1500", "2000"],
                                                 textvariable=self.v_master_ms, width=10), TIPS["len"])
+        tf = ttk.Frame(p)
+        self.v_tame = tk.BooleanVar(value=False)              # off by default
+        self.v_tame_db = tk.DoubleVar(value=4.0)
+        self.v_tame_hz = tk.StringVar(value="3500")
+        ttk.Checkbutton(tf, text="On", variable=self.v_tame, command=self._tame_changed).pack(side="left")
+        ttk.Scale(tf, from_=1, to=9, variable=self.v_tame_db, length=70,
+                  command=lambda e: self._tame_changed(label_only=True)).pack(side="left", padx=(6, 2))
+        self.tame_lab = ttk.Label(tf, text="-4 dB", width=6)
+        self.tame_lab.pack(side="left")
+        ttk.Label(tf, text="at").pack(side="left")
+        tc = ttk.Combobox(tf, values=["2500", "3000", "3500", "4000", "5000", "6000"], width=5,
+                          textvariable=self.v_tame_hz)
+        tc.pack(side="left", padx=2)
+        tc.bind("<<ComboboxSelected>>", lambda e: self._tame_changed())
+        tc.bind("<Return>", lambda e: self._tame_changed())
+        ttk.Label(tf, text="Hz").pack(side="left")
+        self._tame_job = None
+        row("Finger-noise tamer", tf, TIPS["tame"])
         row("", ttk.Checkbutton(p, text="Invert polarity  (?)", variable=self.v_inv), TIPS["inv"])
         self._tip(ttk.Button(p, text="Build IR", style="Rec.TButton", command=self.build), TIPS["build"]).grid(
             row=r, column=0, columnspan=2, sticky="we", padx=6, pady=8)
@@ -261,6 +279,27 @@ class BuildTab:
         save_pedals(self.pedals)
         self._fill_pedals()
 
+    def _tame_hz(self):
+        try:
+            return min(12000.0, max(500.0, float(self.v_tame_hz.get())))
+        except (ValueError, tk.TclError):
+            return 3500.0
+
+    def _tame_changed(self, label_only=False):
+        """Finger-noise tamer changed: update the label, and rebuild once the slider settles."""
+        self.tame_lab.configure(text=f"-{self.v_tame_db.get():.0f} dB")
+        if label_only and not self.v_tame.get():
+            return
+        if self.irm is not None and self.master_src == "built" and not self.busy:
+            if self._tame_job is not None:
+                self.after_cancel(self._tame_job)
+            self._tame_job = self.after(500, self._tame_rebuild)
+
+    def _tame_rebuild(self):
+        self._tame_job = None
+        if not self.busy and not self.rig.recording:
+            self.build()
+
     def params(self):
         return E.BuildParams(smoothing=SMOOTH_OPTS[self.v_smooth.get()],
                              reg_db=float(self.v_reg.get()),
@@ -271,6 +310,8 @@ class BuildTab:
                                                               float(self.v_mix["mid"].get()) / 100),
                              mix_bands=self._mix_bands() if self.v_ir_src.get() == "mix" else None,
                              invert=bool(self.v_inv.get()),
+                             tame_db=float(self.v_tame_db.get()) if self.v_tame.get() else 0.0,
+                             tame_hz=self._tame_hz(),
                              estimator=ESTIMATORS.get(self.v_est.get(), "H1"),
                              master_ms=float(self.v_master_ms.get() or 500))
 
@@ -586,7 +627,8 @@ class BuildTab:
                     fh.write(f"Settings: smoothing {self.v_smooth.get()}, noise protection {p.reg_db:.0f} dB, "
                              f"low cut {p.low_cut:g} Hz, high cut {p.high_cut:g} Hz, "
                              f"blend A/B {100 - p.blend_b * 100:.0f}/{p.blend_b * 100:.0f}, "
-                             f"invert {p.invert}, normalise {self.v_norm.get()}\n")
+                             f"invert {p.invert}, normalise {self.v_norm.get()}, finger-noise tamer "
+                             f"{f'-{p.tame_db:.0f} dB at {p.tame_hz:.0f} Hz' if p.tame_db > 0 else 'off'}\n")
                     if self.master_src not in (None, "built"):
                         fh.write(f"Source: re-fitted from {self.master_src}\n")
                     if self.dual_pair is not None and self.v_dual_export.get():

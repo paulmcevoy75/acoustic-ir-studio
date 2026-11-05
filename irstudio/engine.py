@@ -1035,6 +1035,11 @@ class BuildParams:
     # None = use blend_b everywhere.
     mix_bands: tuple | None = None
     invert: bool = False
+    # Finger-noise tamer: a broad, gentle dip where finger squeaks / string noise live.
+    # tame_db = depth (0 = off), centred on tame_hz, tame_oct octaves wide.
+    tame_db: float = 0.0
+    tame_hz: float = 3500.0
+    tame_oct: float = 1.5
 
 
 def _power_response(acc: Accumulator, p: BuildParams, cal=None):
@@ -1074,6 +1079,18 @@ def _power_response(acc: Accumulator, p: BuildParams, cal=None):
         cf, cg = cal
         P = P / 10 ** (interp_logf(cf, cg, f) / 10)
     return P, Hraw
+
+
+def tamer_gain2(freqs, p):
+    """Power gain of the finger-noise tamer: a smooth bell-shaped dip of tame_db at tame_hz,
+    tame_oct octaves wide (between the points where it's half as deep). 1.0 everywhere when off."""
+    depth = float(getattr(p, "tame_db", 0.0) or 0.0)
+    if depth <= 0:
+        return np.ones(len(freqs))
+    fc = max(float(p.tame_hz), 100.0)
+    sigma = max(float(p.tame_oct), 0.2) / 2.355            # half-depth width -> gaussian sigma
+    d = np.log2(np.maximum(freqs, 1.0) / fc)
+    return 10 ** (-depth * np.exp(-0.5 * (d / sigma) ** 2) / 10)
 
 
 def band_weights(freqs, low, mid, high, x1, x2, width_oct=1 / 3):
@@ -1139,6 +1156,7 @@ def build_master(acc_a: Accumulator | None, acc_b: Accumulator | None,
     hc = p.high_cut if p.high_cut > 0 else 0.48 * fs
     hc = min(hc, 0.47 * fs)
     P *= butter_mag2(f, hc, 4, "lp")
+    P *= tamer_gain2(f, p)
 
     phase_mode = p.phase
     if len(accs) > 1:

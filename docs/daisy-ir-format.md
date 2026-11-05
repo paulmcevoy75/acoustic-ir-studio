@@ -42,6 +42,10 @@ When a session was recorded with **Instrument 2**, each export also gets `…_P1
 - **Speed:** at startup, copy the IR into RAM. Put the early part in AXI SRAM and the tail in SDRAM (`DSY_SDRAM_BSS`).
 - **Method:** use FFT partitioned convolution (CMSIS-DSP `arm_rfft_fast_f32`). Non-uniform partitions (small blocks first) keep latency low and make 1 s practical. Working memory is roughly 4–6 times the IR size.
 
+## De-squeak
+
+A dynamic filter for finger squeaks and string noise, processed before the convolution. See [desqueak-spec.md](desqueak-spec.md).
+
 ## Reserved for later
 
 - **Notches:** a list of feedback notches (frequency Hz, width Q, maximum depth dB), meant to run as filters after the convolution. A "smart notch" pot would scale the depth. It will be a small JSON file next to the IR.

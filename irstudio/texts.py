@@ -65,6 +65,11 @@ BUILD_TIPS = {
     "est": ("How the instrument and mic signals are compared:\n\n- H1 (recommended): ignores noise in the mic signal (room noise, hiss, other sounds). The most accurate in normal conditions.\n- Hv: a balance between H1 and H2 - keeps a bit more of the mic's air and room.\n- H2: use if the PICKUP is noisy (hum, buzz) and the mic is clean.\nIf unsure, keep H1."),
     "phase": ("- Minimum: all the energy as early as possible. Tight, punchy, no pre-echo, lowest latency - and it survives shortening for pedals best. Recommended.\n- Measured: keeps the timing exactly as recorded (including the delay from instrument to mic and any room reflections). Can sound more 'roomy' but smears and shortens badly; mostly for experiments."),
     "len": ("How long the full-length (master) IR is. Longer captures more of the body's ring and the lowest notes accurately, but it's mostly decay after ~200 ms. 1000 ms (the default) covers the Ultimate target; up to 2000 ms for double bass. Every pedal version is cut down from this, so keep it at least as long as your longest target."),
+    "tame": ("Softens finger squeaks, slides and string noise, which piezos exaggerate. It's a broad, gentle dip "
+             "built into the IR (2-6 kHz is where squeaks live; 3500 Hz is a good start). It also takes a little "
+             "sparkle off the notes in that range, so use as little as you need: switch it on and off while "
+             "auditioning your demo. Off by default.\n\nFor squeaks only (notes untouched), a pedal can add a "
+             "'de-squeak' that reacts only when the noise happens."),
     "inv": ("Flips the IR upside down (polarity). Doesn't change the tone on its own, but if you blend the IR'd signal with another signal (a mic, an internal mic, a magnetic pickup) and the sum sounds thin, try flipping it."),
     "build": ("Builds the IR from all your takes using the settings above."),
     "targets": ("The pedals / devices to make IRs for. Each has a maximum IR length; the app fits the best possible IR into that length. 'Error' = how different the short version is from the full IR (under ~1 dB is very hard to hear). Click one to see it on the graph and to audition at that length; Ctrl/Shift-click to pick several for export."),

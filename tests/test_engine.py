@@ -116,3 +116,16 @@ def test_firmware_files(tmp_path):
     ident = E.write_c_header(str(tmp_path / "ir.h"), h, 48000, "My IR 100")
     txt = (tmp_path / "ir.h").read_text()
     assert f"static const float {ident}[100]" in txt and "_LENGTH 100" in txt
+
+
+def test_finger_noise_tamer_dips_only_its_band(single):
+    acc, _ = single
+    off = E.build_master(acc, None, E.BuildParams())
+    on = E.build_master(acc, None, E.BuildParams(tame_db=6, tame_hz=3500, tame_oct=1.5))
+    f = off["freqs"]
+    ratio = 10 * np.log10(on["P"] / np.maximum(off["P"], 1e-300))
+    at = lambda hz: float(np.interp(hz, f, ratio))
+    assert abs(at(3500) + 6) < 0.1          # full depth at the centre
+    assert abs(at(3500 * 2 ** 0.75) + 3) < 0.3   # half depth at the edge of its width
+    assert abs(at(500)) < 0.05 and abs(at(200)) < 0.05      # body and lows untouched
+    assert E.tamer_gain2(f, E.BuildParams()).min() == 1.0   # off by default

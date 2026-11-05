@@ -57,6 +57,8 @@ class ProjectFiles:
                 "low_cut": float(self.v_lc.get() or 0), "high_cut": float(self.v_hc.get() or 0),
                 "phase": self.v_phase.get(), "blend": float(self.v_blend.get()),
                 "invert": bool(self.v_inv.get()), "master_ms": self.v_master_ms.get(),
+                "tame": bool(self.v_tame.get()), "tame_db": float(self.v_tame_db.get()),
+                "tame_hz": self.v_tame_hz.get(),
                 "estimator": self.v_est.get(), "session": self.v_session.get(),
                 "mix": {k: float(v.get()) for k, v in self.v_mix.items()}, "mix_link": bool(self.v_mix_link.get()), "ir_src": self.v_ir_src.get(),
                 "normalize": self.v_norm.get(), "bits": self.v_bits.get(),
@@ -119,6 +121,7 @@ class ProjectFiles:
                              ("reg_db", self.v_reg), ("low_cut", self.v_lc),
                              ("high_cut", self.v_hc), ("phase", self.v_phase),
                              ("blend", self.v_blend), ("invert", self.v_inv),
+                             ("tame", self.v_tame), ("tame_db", self.v_tame_db), ("tame_hz", self.v_tame_hz),
                              ("master_ms", self.v_master_ms), ("normalize", self.v_norm),
                              ("estimator", self.v_est), ("session", self.v_session),
                              ("bits", self.v_bits)):
