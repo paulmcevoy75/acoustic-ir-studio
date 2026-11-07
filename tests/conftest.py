@@ -208,12 +208,13 @@ def app(fake_sd, data_dir, monkeypatch):
     import tkinter
     from irstudio.app import App
     for attempt in range(5):
-        # Windows' Tcl sometimes can't re-read init.tcl right after the previous window closed
+        # Windows' Tcl sometimes can't re-read its own .tcl files (init.tcl, tk.tcl,
+        # listbox.tcl...) right after the previous window closed - just try again
         try:
             a = App()
             break
         except tkinter.TclError as exc:
-            if "init.tcl" not in str(exc) or attempt == 4:
+            if ".tcl" not in str(exc) or attempt == 4:
                 raise
             gc.collect()
             time.sleep(1.0)
