@@ -141,9 +141,10 @@ class BuildTab:
         of.pack(side="bottom", fill="x", padx=4, pady=2)
         self._tip(ttk.Button(of, text="Add custom...", command=self.add_pedal), TIPS["add"]).pack(side="left")
         self._tip(ttk.Button(of, text="Remove", command=self.remove_pedal), TIPS["rem"]).pack(side="left", padx=4)
-        self.v_norm = tk.StringVar(value="Match loudness")
-        self._tip(ttk.Combobox(of, values=["Match loudness", "Peak -1 dBFS"], textvariable=self.v_norm,
-                               state="readonly", width=14), TIPS["norm"]).pack(side="left", padx=(8, 0))
+        self.v_norm = tk.StringVar(value="Same loudness as dry")
+        self._tip(ttk.Combobox(of, values=["Same loudness as dry", "Match loudness", "Peak -1 dBFS"],
+                               textvariable=self.v_norm,
+                               state="readonly", width=19), TIPS["norm"]).pack(side="left", padx=(8, 0))
         self.v_bits = tk.StringVar(value="24-bit")
         self._tip(ttk.Combobox(of, values=["16-bit", "24-bit", "32-bit float"], textvariable=self.v_bits,
                                state="readonly", width=10), TIPS["bits"]).pack(side="left", padx=4)
@@ -178,7 +179,7 @@ class BuildTab:
         ttk.Label(hdr, text="Show:").pack(side="left")
         self.v_show = {}
         for key, text in (("A", "Reference Mic"), ("B", "Color Mic"), ("dry", "Piezo dry"),
-                          ("ir", "IR (full length)"), ("fit", "IR at target length")):
+                          ("ir", "IR (full)"), ("fit", "IR (target length)")):
             self.v_show[key] = tk.BooleanVar(value=True)
             cb = tk.Checkbutton(hdr, text=text, variable=self.v_show[key], fg=PLOT_COL.get(
                 {"dry": "piezo"}.get(key, key), "#111"), selectcolor="white", font=("Segoe UI", 9, "bold"),
@@ -188,6 +189,9 @@ class BuildTab:
         self._tip(ttk.Button(hdr, text="\u25b6 Play IR", command=self._play_ir),
                   "Plays the impulse response once (the selected target's version) through the Audition "
                   "output - a quick 'tock' you can compare between settings.").pack(side="right")
+        self._tip(ttk.Button(hdr, text="Pedal check...", command=self.open_pedal_check),
+                  "Record your IR pedal's real output next to the Reference Mic, see what's still different, "
+                  "and correct the IR for it.").pack(side="right", padx=4)
         self.fig = Figure(figsize=(7, 2.2 if self.compact else 2.8), dpi=100)
         gs = self.fig.add_gridspec(1, 2, width_ratios=[2.5, 1])
         self.ax = self.fig.add_subplot(gs[0, 0])
@@ -312,6 +316,7 @@ class BuildTab:
                              invert=bool(self.v_inv.get()),
                              tame_db=float(self.v_tame_db.get()) if self.v_tame.get() else 0.0,
                              tame_hz=self._tame_hz(),
+                             corr=getattr(self, "pedal_corr", None),
                              estimator=ESTIMATORS.get(self.v_est.get(), "H1"),
                              master_ms=float(self.v_master_ms.get() or 500))
 
@@ -501,14 +506,40 @@ class BuildTab:
         # fixed margins (not tight_layout): the graphs stay the same size whatever is plotted
         self.fig.subplots_adjust(left=0.065, right=0.99, top=0.92, bottom=0.15, wspace=0.14)
 
+    @staticmethod
+    def _level_note(r):
+        s = r.get("short_db")
+        if s is None:
+            return ""
+        if s < 0.5:
+            return "  Level: plays as loud as the dry piezo."
+        return (f"  Level: {s:.1f} dB quieter than the dry piezo (an IR file can't go louder) - turn the "
+                "pedal's IR / output level up by that much.")
+
+    def _dry_spectrum(self):
+        """(freqs, power) of the dry piezo from the captured takes, or None."""
+        if self.master_src not in (None, "built"):
+            return None
+        acc = next((self.acc[s] for s in SLOTS if self._has(s)), None)
+        return None if acc is None else (acc.freqs, acc.Sxx)
+
     def _fit(self, iid):
         if iid in self.fits:
             return self.fits[iid]
         pd = self.pedals[int(iid)]
-        ref = E.loudness_ref_at(self.irm, pd["fs"]) if self.v_norm.get() == "Match loudness" else None
+        mode = self.v_norm.get()
+        dry = self._dry_spectrum() if mode == "Same loudness as dry" else None
+        if mode == "Same loudness as dry" and dry is None:
+            mode = "Match loudness"          # loaded / Tone Match IRs have no dry piezo to compare with
+        ref = E.loudness_ref_at(self.irm, pd["fs"]) if mode == "Match loudness" else None
         r = E.fit_for_pedal(self.irm, pd["fs"], pd["samples"],
                             normalize="loudness" if ref else "peak", ref_level=ref,
                             fmin=self.profile()["fmin"])
+        r["short_db"] = None
+        if dry is not None:
+            r["h"], r["short_db"] = E.scale_to_dry(r["h"], r["fs"], *dry)
+            M = 2 * (len(r["freqs"]) - 1)
+            r["R"] = np.abs(np.fft.rfft(r["h"], M)) ** 2
         self.fits[iid] = r
         self.ped_tree.set(iid, "err", f"{r['err_vs_full_db']:.2f} dB")
         return r
@@ -539,6 +570,7 @@ class BuildTab:
             f", tail fade {int(r['fade'] * 100)}%.  "
             f"{'Under 1 dB is hard to hear; ' if r['err_vs_full_db'] < 1 else ''}"
             f"{'short IRs mainly lose low-end resonance detail.' if r['N'] / r['fs'] < 0.03 else ''}"
+            f"{self._level_note(r)}"
             f"{'  Dual-piezo IR pair ready: try Audition > Piezo 1 + 2.' if self.dual_pair is not None else ''}"))
 
     def export_all(self):
@@ -629,6 +661,9 @@ class BuildTab:
                              f"blend A/B {100 - p.blend_b * 100:.0f}/{p.blend_b * 100:.0f}, "
                              f"invert {p.invert}, normalise {self.v_norm.get()}, finger-noise tamer "
                              f"{f'-{p.tame_db:.0f} dB at {p.tame_hz:.0f} Hz' if p.tame_db > 0 else 'off'}\n")
+                    if getattr(self, "pedal_corr", None):
+                        fh.write(f"Pedal check: corrected for the pedal's real output "
+                                 f"({getattr(self, 'pedal_corr_rounds', 1)} round(s)).\n")
                     if self.master_src not in (None, "built"):
                         fh.write(f"Source: re-fitted from {self.master_src}\n")
                     if self.dual_pair is not None and self.v_dual_export.get():

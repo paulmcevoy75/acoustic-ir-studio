@@ -264,7 +264,17 @@ class CaptureTab:
             self.rec_btn.configure(state="normal")
 
     def _ensure_audio(self):
+        """Audio running with exactly the inputs switched on in Setup (an input turned on or moved
+        after 'Start audio' would otherwise not be recorded)."""
         if not self.rig.running():
+            return self.start_audio()
+        try:
+            want = {r: tuple(v) for r, v in self.input_config().items()}
+        except ValueError:
+            return self.start_audio()               # shows the problem
+        have = {r: tuple(v) for r, v in self.rig.roles.items()}
+        if want != have:
+            log.info("inputs changed since audio started - restarting audio")
             return self.start_audio()
         return True
 
@@ -395,6 +405,10 @@ class CaptureTab:
         if getattr(self, "rec_is_demo", False):
             self.rec_is_demo = False
             self._demo_done(data, fs, two)
+            return
+        if getattr(self, "rec_is_pcheck", False):
+            self.rec_is_pcheck = False
+            self._pedal_check_done(data, fs, two)
             return
         mics = {}
         for s in SLOTS:
@@ -553,7 +567,7 @@ class CaptureTab:
                             "All bands are solid. More takes will only refine it slightly - "
                             "go to Build & Export.")
 
-    SPEC_COL = {"piezo": "#2e7d32", "piezo2": "#7cb342", "A": "#1565c0", "B": "#ef6c00", "I": "#8e24aa"}
+    SPEC_COL = {"piezo": "#2e7d32", "piezo2": "#7cb342", "A": "#1565c0", "B": "#ef6c00", "I": "#8e24aa", "PO": "#d81b60"}
 
     def _spec_init(self):
         ax = self.spec_ax

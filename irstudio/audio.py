@@ -164,7 +164,7 @@ class AudioRig:
         self.warning = ""
         # headphone monitor
         self.mon_stream = None
-        self.mon_gain = {r: 1.0 for r in ("piezo", "piezo2", "A", "B", "I")}
+        self.mon_gain = {r: 1.0 for r in ("piezo", "piezo2", "A", "B", "I", "PO")}
         self.mon_master = 0.5
         self.mon_mute = set()
         self.mon_solo = set()

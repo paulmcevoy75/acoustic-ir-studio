@@ -73,7 +73,9 @@ BUILD_TIPS = {
     "inv": ("Flips the IR upside down (polarity). Doesn't change the tone on its own, but if you blend the IR'd signal with another signal (a mic, an internal mic, a magnetic pickup) and the sum sounds thin, try flipping it."),
     "build": ("Builds the IR from all your takes using the settings above."),
     "targets": ("The pedals / devices to make IRs for. Each has a maximum IR length; the app fits the best possible IR into that length. 'Error' = how different the short version is from the full IR (under ~1 dB is very hard to hear). Click one to see it on the graph and to audition at that length; Ctrl/Shift-click to pick several for export."),
-    "norm": ("- Match loudness: every exported length plays at the same perceived volume, so you can swap IRs or pedals without a jump in level.\n- Peak -1 dBFS: each file is made as loud as possible without clipping (lengths may differ in volume)."),
+    "norm": ("- Same loudness as dry (recommended): each IR is set so your piezo through it is as loud as the "
+             "piezo without it - switching the IR on doesn't drop the volume. If a file can't get that loud, the "
+             "notes under the graph say how much to turn the pedal up.\n- Match loudness: every exported length plays at the same perceived volume, so you can swap IRs or pedals without a jump in level.\n- Peak -1 dBFS: each file is made as loud as possible without clipping (lengths may differ in volume)."),
     "bits": ("File format of the exported WAVs. 24-bit suits almost every pedal. Use 16-bit only if your pedal rejects 24-bit; 32-bit float for software / DAW convolvers."),
     "bundle": ("Also saves the full-length master IR (32-bit float) and a notes file with all settings. Every export goes into the folder '<Project Name> IRs', next to where the project is saved."),
     "export": ("Saves an IR file for every selected target, into the folder '<Project Name> IRs' next to the saved project (you're asked to save the project first if it hasn't been)."),

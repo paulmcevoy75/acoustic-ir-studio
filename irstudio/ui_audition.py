@@ -287,7 +287,7 @@ class AuditionPanel:
     def _short_name(self, role):
         """Label if given, else the generic name ('Piezo' for the instrument input)."""
         lab = self.inp_label[role].get().strip() if hasattr(self, "inp_label") else ""
-        return lab or {"piezo": "Piezo", "piezo2": "Piezo 2"}.get(role, ROLE_BASE.get(role, role))
+        return lab or {"piezo": "Piezo", "piezo2": "Piezo 2", "PO": "Pedal output"}.get(role, ROLE_BASE.get(role, role))
 
     def _target_iid(self):
         if not hasattr(self, "ped_tree"):

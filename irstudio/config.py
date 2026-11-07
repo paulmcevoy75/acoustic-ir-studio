@@ -77,11 +77,11 @@ SLOT_LABEL = {"A": "Reference Mic", "B": "Color Mic"}
 
 
 # instrument, optional 2nd piezo element, reference mic, color mic, internal mic
-ROLES = ("piezo", "piezo2", "A", "B", "I")
+ROLES = ("piezo", "piezo2", "A", "B", "I", "PO")
 
 
 ROLE_BASE = {"piezo": "Instrument", "piezo2": "Instrument 2", "A": "Reference Mic", "B": "Color Mic",
-             "I": "Internal Mic"}
+             "I": "Internal Mic", "PO": "Pedal output"}
 
 
 def _data_dir():

@@ -61,7 +61,9 @@ class ProjectFiles:
                 "tame_hz": self.v_tame_hz.get(),
                 "estimator": self.v_est.get(), "session": self.v_session.get(),
                 "mix": {k: float(v.get()) for k, v in self.v_mix.items()}, "mix_link": bool(self.v_mix_link.get()), "ir_src": self.v_ir_src.get(),
-                "normalize": self.v_norm.get(), "bits": self.v_bits.get(),
+                "normalize": self.v_norm.get(), "norm_v": 2, "bits": self.v_bits.get(),
+                "pedal_corr": [list(c) for c in self.pedal_corr] if getattr(self, "pedal_corr", None) else None,
+                "pedal_corr_rounds": getattr(self, "pedal_corr_rounds", 0),
                 "selected": [self.pedals[int(i)]["name"] for i in self.ped_tree.selection()],
                 "step": int(getattr(self, "step_i", 0)),
                 "master_src": self.master_src if self.master_src not in (None, "built") else None}
@@ -132,6 +134,11 @@ class ProjectFiles:
                     self.v_mix[k].set(v)
             if "mix_link" in st:
                 self.v_mix_link.set(bool(st["mix_link"]))
+            if st.get("normalize") == "Match loudness" and not st.get("norm_v"):
+                self.v_norm.set("Same loudness as dry")     # older projects: that was just the default
+            pc = st.get("pedal_corr")
+            self.pedal_corr = (tuple(pc[0]), tuple(pc[1])) if pc else None
+            self.pedal_corr_rounds = int(st.get("pedal_corr_rounds", 0) or 0)
             if st.get("ir_src") in ("mix", "A", "B"):
                 self.v_ir_src.set(st["ir_src"])
                 self._ir_src_pref = st["ir_src"]
@@ -240,10 +247,10 @@ class ProjectFiles:
         except Exception as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
-    def _state_path(self, folder=AUTOSAVE_DIR):
-        return os.path.join(folder, "state.json")
+    def _state_path(self, folder=None):
+        return os.path.join(folder or AUTOSAVE_DIR, "state.json")
 
-    def _read_state(self, folder=AUTOSAVE_DIR):
+    def _read_state(self, folder=None):
         try:
             with open(self._state_path(folder)) as fh:
                 return json.load(fh)

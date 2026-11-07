@@ -28,13 +28,14 @@ from .texts import TEXT_TIPS
 from .ui_audition import AuditionPanel
 from .ui_build import BuildTab
 from .ui_capture import CaptureTab
+from .ui_pedalcheck import PedalCheck
 from .ui_setup import SetupTab
 from .ui_tone import ToneMatchTab
 from .util import open_url
 from .widgets import ScrollFrame, Tooltip
 
 
-class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatchTab, tk.Tk):
+class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, PedalCheck, ProjectFiles, ToneMatchTab, tk.Tk):
     def __init__(self):
         super().__init__()
         self.build_meta = build_info()
@@ -74,6 +75,8 @@ class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatch
         self.last_piezo = None
         self.demo = None
         self.dual_pair = None
+        self.pedal_corr = None          # Pedal-check correction curve ((Hz...), (dB...))
+        self.pedal_corr_rounds = 0
         self.project_path = None        # the .irproject file; its IRs export to '<name> IRs' beside it
         self.default_export_dir = load_settings().get("export_dir", "")
         self.backup_dir = load_settings().get("backup_dir", "")

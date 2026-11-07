@@ -67,12 +67,13 @@ class SetupTab:
         ttk.Label(fr, text="Each choice is one mono input (e.g. 'My Interface - Input 2'). One mic of any "
                   "kind works; the others are optional. Type a label for each (e.g. 'SM57', 'USB Mic') so "
                   "you can tell them apart everywhere in the app.",
-                  foreground="#555", wraplength=820, justify="left").grid(row=10, column=1, columnspan=3, sticky="w", pady=(0, 6))
+                  foreground="#555", wraplength=820, justify="left").grid(row=12, column=1, columnspan=3, sticky="w", pady=(0, 6))
         rows = (("piezo", "Instrument (piezo / DI)", None),
                 ("piezo2", "Instrument 2 (2nd piezo element, optional)", True),
                 ("A", "Reference Mic", True),
                 ("B", "Color Mic (optional)", True),
-                ("I", "Internal Mic (optional)", True))
+                ("I", "Internal Mic (optional)", True),
+                ("PO", "Pedal output (optional, for Pedal check)", True))
         self.inp_widgets = {}
         self.inp_label = {}
         for k, (role, label, togg) in enumerate(rows):
@@ -187,7 +188,7 @@ class SetupTab:
         def find(pred, ch=None):
             return next((lab for lab, i, c, nm in ins if pred(nm) and (ch is None or c == ch)), "")
 
-        default_ch = {"piezo": 0, "piezo2": 1, "A": 0, "B": 1, "I": 2}
+        default_ch = {"piezo": 0, "piezo2": 1, "A": 0, "B": 1, "I": 2, "PO": 3}
         for role, v in self.inp.items():
             if v["dev"].get() in self.in_map:
                 continue
@@ -253,7 +254,7 @@ class SetupTab:
 
     def _inputs_changed(self):
         p = self._sel("piezo")
-        for role in ("piezo2", "A", "B", "I"):
+        for role in ("piezo2", "A", "B", "I", "PO"):
             v = self.inp[role]
             v["cb"].configure(state="readonly" if v["on"].get() else "disabled")
             m = self._sel(role)
@@ -261,6 +262,8 @@ class SetupTab:
                 v["info"].set("off")
             elif m is None or p is None:
                 v["info"].set("")
+            elif role == "PO":
+                v["info"].set("your IR pedal's output - used only by Pedal check (Build tab)")
             elif role == "piezo2":
                 v["info"].set("same device as Instrument 1 - good" if m[0] == p[0] else
                               "must be on the SAME device as the Instrument (sample-locked)")
@@ -273,7 +276,7 @@ class SetupTab:
                 self.meter_name[role].configure(text=self.mic_name(role))
             for s_ in SLOTS:
                 self.cov_radio[s_].configure(text=self.mic_name(s_))
-            for role in ("piezo2", "A", "B", "I"):
+            for role in ("piezo2", "A", "B", "I", "PO"):
                 c, lab = self.meter[role]
                 on = bool(self.inp[role]["on"].get())
                 if not on:

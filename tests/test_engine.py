@@ -129,3 +129,49 @@ def test_finger_noise_tamer_dips_only_its_band(single):
     assert abs(at(3500 * 2 ** 0.75) + 3) < 0.3   # half depth at the edge of its width
     assert abs(at(500)) < 0.05 and abs(at(200)) < 0.05      # body and lows untouched
     assert E.tamer_gain2(f, E.BuildParams()).min() == 1.0   # off by default
+
+
+def test_pedal_check_finds_what_the_pedal_is_missing():
+    """The 'pedal' plays the IR without its lows (as a too-short IR would): the check must see it."""
+    rng = np.random.default_rng(11)
+    x = np.concatenate([playing(n, 8, rng) for n in SESSIONS[:3]])
+    mic = signal.fftconvolve(x, H_TRUE)[:len(x)] + 1e-4 * rng.standard_normal(len(x))
+    h_pedal = signal.lfilter(*signal.butter(2, 200, "high", fs=FS), H_TRUE) * 0.5   # lows gone, quieter
+    pedal = signal.fftconvolve(x, h_pedal)[:len(x)]
+    r = E.pedal_check(pedal, mic, FS, x_dry=x)
+    at = lambda hz: float(np.interp(np.log2(hz), np.log2(r["freqs"]), r["diff_db"]))
+    assert at(100) > 5                        # the mic has much more low end than the pedal
+    assert abs(at(1000)) < 1.0 and abs(at(3000)) < 1.0
+    assert r["correction_db"][np.argmin(abs(r["freqs"] - 100))] > 3   # ...and the fix adds it back
+    assert r["level_db"] is not None
+
+
+def test_correction_curve_is_applied_in_the_build(single):
+    acc, _ = single
+    corr = ((50.0, 100.0, 200.0, 20000.0), (6.0, 6.0, 0.0, 0.0))
+    off = E.build_master(acc, None, E.BuildParams())
+    on = E.build_master(acc, None, E.BuildParams(corr=corr))
+    f = off["freqs"]
+    gain = lambda hz: 10 * np.log10(np.interp(hz, f, on["P"]) / np.interp(hz, f, off["P"]))
+    assert abs(gain(80) - 6) < 0.2 and abs(gain(1000)) < 0.05
+
+
+def test_same_loudness_as_dry():
+    rng = np.random.default_rng(4)
+    h = np.zeros(1024)
+    h[0], h[40], h[300] = 0.2, 0.15, -0.1                     # a quiet IR, energy spread out
+    f = np.fft.rfftfreq(8192, 1 / FS)
+    Sx = np.abs(np.fft.rfft(rng.standard_normal(8192))) ** 2
+    h2, short = E.scale_to_dry(h, FS, f, Sx)
+    assert short == 0.0
+    M = 16384
+    fd = np.fft.rfftfreq(M, 1 / FS)
+    R = np.abs(np.fft.rfft(h2, M)) ** 2
+    S = np.interp(fd, f, Sx)
+    m = (fd >= 40) & (fd <= 12000)
+    assert abs(10 * np.log10(np.sum(S[m] * R[m]) / np.sum(S[m]))) < 0.2   # as loud as dry
+    loud = np.zeros(64)
+    loud[0] = 0.9
+    loud[1] = -0.85                                           # needs a big boost to be as loud
+    _, short2 = E.scale_to_dry(loud, FS, f, Sx)
+    assert short2 > 1                                         # capped - and says by how much

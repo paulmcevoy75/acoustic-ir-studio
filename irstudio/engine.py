@@ -1040,6 +1040,8 @@ class BuildParams:
     tame_db: float = 0.0
     tame_hz: float = 3500.0
     tame_oct: float = 1.5
+    # Correction measured by a Pedal check: ((Hz, ...), (dB, ...)) added to the response.
+    corr: tuple | None = None
 
 
 def _power_response(acc: Accumulator, p: BuildParams, cal=None):
@@ -1079,6 +1081,70 @@ def _power_response(acc: Accumulator, p: BuildParams, cal=None):
         cf, cg = cal
         P = P / 10 ** (interp_logf(cf, cg, f) / 10)
     return P, Hraw
+
+
+def correction_gain2(freqs, corr):
+    """Power gain of a Pedal-check correction curve (log-frequency interpolation, 0 dB outside)."""
+    if not corr:
+        return np.ones(len(freqs))
+    cf, cdb = np.asarray(corr[0], float), np.asarray(corr[1], float)
+    lf = np.log2(np.maximum(freqs, 1.0))
+    return 10 ** (np.interp(lf, np.log2(cf), cdb, left=0.0, right=0.0) / 10)
+
+
+def pedal_check(x_pedal, y_mic, fs, two_device=False, cal=None, x_dry=None):
+    """Compare what the pedal really puts out with the Reference Mic, recorded together.
+
+    Returns the remaining difference per 1/6 octave (dB, mic minus pedal, level-matched at
+    200 Hz-5 kHz), how much it can be trusted per point, a suggested correction, and the pedal
+    output's level relative to the dry piezo (if x_dry, recorded at the same time, is given)."""
+    acc = Accumulator(fs)
+    rep = acc.process_take(np.asarray(x_pedal, float), np.asarray(y_mic, float), "pedal check",
+                           two_device=two_device)
+    if not rep.get("accepted"):
+        raise ValueError("Couldn't match the pedal output to the mic - play a little longer and louder, "
+                         "and check the Pedal output input is the pedal (not the dry piezo).")
+    P, _ = _power_response(acc, BuildParams(smoothing=1 / 6), cal)
+    grid = np.geomspace(40, min(16000, 0.45 * fs), 61)
+    db = 10 * np.log10(np.maximum(np.interp(grid, acc.freqs, P), 1e-30))
+    ref = (grid >= 200) & (grid <= 5000)
+    db -= np.mean(db[ref])
+    # trust: from the take's coverage (bands with little playing get little say)
+    cov = acc.coverage()
+    cc = np.array([c["center"] for c in cov])
+    unc = np.array([c["unc_db"] if np.isfinite(c["unc_db"]) else 20.0 for c in cov])
+    trust = np.clip((6.0 - np.interp(np.log2(grid), np.log2(cc), unc)) / 4.0, 0, 1)
+    taper = np.clip((np.log2(grid / 50.0)) / 0.5, 0, 1) * np.clip(np.log2(12000.0 / grid) / 0.5, 0, 1)
+    sugg = np.clip(db, -12, 12) * trust * taper
+    sel = (grid >= 80) & (grid <= 10000) & (trust > 0.5)
+    rms = float(np.sqrt(np.mean(db[sel] ** 2))) if np.any(sel) else float("nan")
+    level = None
+    if x_dry is not None and len(x_dry):
+        r = lambda v: np.sqrt(np.mean(np.asarray(v, float) ** 2)) + 1e-12
+        level = float(20 * np.log10(r(x_pedal) / r(x_dry)))
+    return {"freqs": grid, "diff_db": db, "trust": trust, "correction_db": sugg, "rms_db": rms,
+            "level_db": level, "report": rep}
+
+
+def scale_to_dry(h, fs, dry_freqs, dry_power, fmin=40.0, fmax=12000.0, ceiling_db=-0.1):
+    """Scale an IR so the piezo played through it is as loud as the dry piezo (power-weighted
+    by the piezo's own spectrum). The file can't exceed its ceiling, so returns
+    (h, shortfall_db): how much quieter than dry it still is (0 when it made it)."""
+    h = np.asarray(h, float)
+    M = int(2 ** int(np.ceil(np.log2(max(16384, 4 * len(h))))))
+    fd = np.fft.rfftfreq(M, 1 / fs)
+    R = np.abs(np.fft.rfft(h, M)) ** 2
+    Sx = np.interp(fd, dry_freqs, dry_power, left=0.0, right=0.0)
+    m = (fd >= fmin) & (fd <= min(fmax, 0.45 * fs))
+    g = np.sqrt(np.sum(Sx[m]) / max(np.sum(Sx[m] * R[m]), 1e-30))
+    h2 = h * g
+    pk = np.max(np.abs(h2))
+    ceil = 10 ** (ceiling_db / 20)
+    short = 0.0
+    if pk > ceil:
+        short = float(20 * np.log10(pk / ceil))
+        h2 *= ceil / pk
+    return h2, short
 
 
 def tamer_gain2(freqs, p):
@@ -1157,6 +1223,7 @@ def build_master(acc_a: Accumulator | None, acc_b: Accumulator | None,
     hc = min(hc, 0.47 * fs)
     P *= butter_mag2(f, hc, 4, "lp")
     P *= tamer_gain2(f, p)
+    P *= correction_gain2(f, p.corr)
 
     phase_mode = p.phase
     if len(accs) > 1:

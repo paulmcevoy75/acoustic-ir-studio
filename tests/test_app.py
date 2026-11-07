@@ -198,3 +198,39 @@ def test_finger_noise_tamer_is_off_by_default_and_saved(app, fake_sd, save_to):
     app.v_tame.set(False)
     app.load_session(save_to)
     assert app.v_tame.get() and app.params().tame_hz == 4000
+
+
+def test_pedal_check_and_same_loudness_export(app, fake_sd, save_to):
+    setup_inputs(app)
+    capture(app, fake_sd, n=3)
+    app.nb.select(app.tab_build)
+    app.build()
+    assert app.v_norm.get() == "Same loudness as dry"
+    r = app._fit("0")
+    assert r["short_db"] is not None                          # the level note is computed
+
+    # the pedal's output on Input 3: the piezo through an IR that lost its low end
+    vals = list(app.inp["piezo"]["cb"]["values"])
+    app.inp["PO"]["on"].set(True)
+    app.inp["PO"]["dev"].set(next(v for v in vals if "Test Interface 4x4)  -  Input 3" in v))
+    app._inputs_changed()
+    rng = np.random.default_rng(12)
+    iface, usb = take_signals(rng, SESSIONS[0], dur=15)
+    h_ped = signal.lfilter(*signal.butter(2, 200, "high", fs=FS), H_A)
+    iface[:, 2] = signal.fftconvolve(iface[:, 0], h_ped)[:len(iface)]
+    app.open_pedal_check()
+    app.update()
+    record(app, fake_sd, iface, usb, app.pedal_check_record)
+    app.pedal_check_stop()
+    wait(app, lambda: app._pc_result is not None or "Couldn't" in app.pc_status.cget("text"), 120)
+    assert app._pc_result is not None, app.pc_status.cget("text")
+    assert app._pc_result["correction_db"][np.argmin(abs(app._pc_result["freqs"] - 100))] > 2
+    p_before = app.irm["P"].copy()
+    app.pedal_check_apply()
+    f = app.irm["freqs"]
+    assert np.interp(100, f, app.irm["P"]) > 1.5 * np.interp(100, f, p_before)   # lows added back
+    app.save_session()
+    app.pedal_corr = None
+    app.load_session(save_to)
+    assert app.pedal_corr is not None and app.params().corr is not None
+    app.pc_win.destroy()

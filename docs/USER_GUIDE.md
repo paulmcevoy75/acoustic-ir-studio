@@ -83,6 +83,13 @@ Every take records all the inputs at the same time. Each dropdown lists every in
 
   Pick your pedal first: the graph and Audition use that length. The **Error** column shows how close that length gets to the full IR; below about 1 dB is very hard to hear. Your own devices (**Add custom...**) are kept in your data folder, so updates don't remove them.
 - **Match loudness** keeps all your exported lengths at the same volume.
+- **Same loudness as dry** (the default level setting) makes each exported IR play as loud as your dry piezo, so switching the IR on doesn't drop the volume. If a file can't get that loud, the notes under the graph tell you how many dB to turn the pedal up. *Match loudness* (every length at the same level) and *Peak -1 dBFS* are still available.
+- **Pedal check** (button above the graph) checks your real pedal. Run the guitar into the pedal and the pedal's output into an interface input (Setup: turn on **Pedal output**). Record about 30 s with the Reference Mic where it was. The app then:
+  - shows what's still different between the pedal's actual sound and the mic, including whatever the pedal does itself
+  - shows how its level compares with the dry piezo
+  - can fold that difference into the IR (**Apply this correction**)
+
+  Export again, load it into the pedal and check again. One or two rounds usually get it close. The correction is saved with the project.
 - **Finger-noise tamer** (off by default): a gentle dip, built into the IR, that softens finger squeaks and string noise. Start at -3 to -4 dB around 3500 Hz and compare on and off with your demo. It also takes a little sparkle off the notes in that range. A pedal-side "de-squeak" that only acts on the noise is described in `docs/desqueak-spec.md`.
 - **Audition:** press **Record new demo** (right on the Build tab) and play up to 60 s; it records the piezo (plus the Internal Mic if it's on, and the mics only if you tick *also record the mics*). Then play it as: the piezo dry, the real mics (if recorded), or the piezo through the chosen / Reference Mic / Color Mic / Blended IR, all cut to the selected target's length.
   - Every option is level-matched, and switching while it plays carries on from the same spot.
