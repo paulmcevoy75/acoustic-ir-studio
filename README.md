@@ -13,8 +13,10 @@ Thank you to [Vic Wong](https://www.paniquejazz.com/) for the inspiration.
 
 **[⬇ Get the latest version](https://github.com/paulmcevoy75/acoustic-ir-studio/releases/latest)**, for Windows or Mac.
 
-- **Windows:** download `AcousticIRStudio-windows.zip`, unzip it and run `AcousticIRStudio.exe`. If Windows says *"Windows protected your PC"* (the app isn't code-signed), click **More info → Run anyway**.
-- **Mac:** download `AcousticIRStudio-mac-apple-silicon.zip` (M1 and later) or `…-mac-intel.zip` (older Macs) and unzip it. The first time, double-click the app, click **Done**, then go to **System Settings → Privacy & Security → Open Anyway** (the app isn't registered with Apple yet). Allow the microphone when asked.
+- **Windows:** download `AcousticIRStudio-v…-windows.zip`, unzip it and run `AcousticIRStudio.exe`. If Windows says *"Windows protected your PC"* (the app isn't code-signed), click **More info → Run anyway**.
+- **Mac:** download `AcousticIRStudio-v…-mac-apple-silicon.zip` (M1 and later) or `…-mac-intel.zip` (older Macs) and unzip it. The first time, double-click the app, click **Done**, then go to **System Settings → Privacy & Security → Open Anyway** (the app isn't registered with Apple yet). Allow the microphone when asked.
+
+Every zip includes **START HERE - setup instructions.txt** with step-by-step setup and how to update.
 
 ## What it does
 

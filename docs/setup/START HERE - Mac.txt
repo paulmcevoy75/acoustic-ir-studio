@@ -1,0 +1,53 @@
+ACOUSTIC IR STUDIO - version {VERSION} ({DATE}) - Mac ({ARCH})
+=========================================================
+
+WHAT'S IN THIS ZIP
+  Acoustic IR Studio.app  the app
+  USER_GUIDE.md           how to use the app, step by step
+  README.md, LICENSE, THIRD_PARTY_NOTICES.md
+
+WRONG MAC VERSION?
+  apple-silicon = Macs with M1, M2, M3, M4... (most Macs from 2020 on)
+  intel         = older Intel Macs
+  Check: Apple menu > About This Mac > "Chip" (Apple M...) or "Processor" (Intel).
+
+FIRST-TIME SETUP (about 5 minutes)
+  1. Double-click the zip to unzip it (Safari may have done this already).
+  2. Drag "Acoustic IR Studio" into your Applications folder.
+  3. Double-click it. macOS says it can't verify the app - click "Done".
+     (This free app isn't registered with Apple yet.)
+  4. Open System Settings > Privacy & Security, scroll down, and click
+     "Open Anyway" next to Acoustic IR Studio. Enter your password if asked.
+  5. When the app asks to use the microphone, click "Allow". It needs this
+     to hear your instrument and mics.
+     (Clicked "Don't Allow" by mistake? System Settings > Privacy &
+     Security > Microphone > turn on Acoustic IR Studio.)
+  From then on it opens normally.
+
+IN THE APP
+  6. Plug in your audio interface BEFORE opening the app.
+  7. Setup tab: Driver type "Core Audio", pick your interface, then turn
+     on the inputs you use (Piezo, Reference Mic, and others if you have
+     them).
+  8. Press "Start audio", play a little, and set the levels so the
+     meters stay out of the red.
+  9. Capture tab: record. Build tab: build and export your IR.
+     The exported IRs go into a "(Project Name) IRs" folder next to your
+     saved project.
+  Full details: USER_GUIDE.md (opens in TextEdit or any browser).
+
+UPDATING TO A NEW VERSION
+  Drag the new app into Applications and choose "Replace". Your projects,
+  autosaves and settings are kept (they live in
+  ~/Library/Application Support/AcousticIRStudio). You may need to do
+  steps 3-4 once more.
+  (Help > About in the app shows which version you have.)
+
+IF SOMETHING GOES WRONG
+  - No inputs show up: check the microphone permission (step 5), then
+    quit and reopen the app.
+  - Send a report, with the log file from
+    ~/Library/Application Support/AcousticIRStudio/logs, at
+    github.com/paulmcevoy75/acoustic-ir-studio/issues
+
+Created by Paul McEvoy - paulmcevoyguitars.com

@@ -5,7 +5,7 @@ This app makes acoustic-guitar IRs from a piezo and a mic recorded at the same t
 ## Install and run
 
 **Easiest: download the ready-made app (no Python needed)**
-1. Go to the repository's **Releases** page (right-hand side of the GitHub page), open the newest **Version**, and download **AcousticIRStudio-windows.zip**. It's rebuilt automatically every time the code is updated; the app's title bar and **Help > About** show which version you have.
+1. Go to the repository's **Releases** page (right-hand side of the GitHub page), open the newest **Version**, and download **AcousticIRStudio-v(version)-windows.zip** and follow **START HERE - setup instructions.txt** inside it. It's rebuilt automatically every time the code is updated; the app's title bar and **Help > About** show which version you have.
 2. Unzip it anywhere and run **AcousticIRStudio.exe**.
 3. Windows may show *"Windows protected your PC"*, because the app isn't code-signed. Click **More info → Run anyway**.
 4. To update, download the newest zip and unzip it over the old folder. Your autosaves, logs and device settings in that folder are kept.

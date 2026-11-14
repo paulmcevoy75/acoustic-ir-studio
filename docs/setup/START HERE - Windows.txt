@@ -1,0 +1,48 @@
+ACOUSTIC IR STUDIO - version {VERSION} ({DATE}) - Windows
+=========================================================
+
+WHAT'S IN THIS ZIP
+  AcousticIRStudio.exe    the app (double-click to run)
+  _internal\              files the app needs - leave them next to the .exe
+  USER_GUIDE.md           how to use the app, step by step
+  README.md, LICENSE, THIRD_PARTY_NOTICES.md
+
+FIRST-TIME SETUP (about 5 minutes)
+  1. Right-click the zip > "Extract All..." > Extract.
+     (Don't run it from inside the zip - it won't work.)
+  2. Move the extracted "AcousticIRStudio" folder somewhere permanent,
+     e.g. Documents. Avoid "Program Files".
+  3. Open the folder and double-click AcousticIRStudio.exe.
+  4. If Windows says "Windows protected your PC":
+     click "More info" > "Run anyway". (Only the first time - the app
+     isn't code-signed yet.)
+  5. Optional: right-click AcousticIRStudio.exe > "Send to" >
+     "Desktop (create shortcut)".
+
+IN THE APP
+  6. Plug in your audio interface BEFORE opening the app.
+  7. Setup tab: pick your interface, then turn on the inputs you use
+     (Piezo, Reference Mic, and others if you have them).
+     Driver type: leave it on "Windows WASAPI" (if your interface isn't
+     listed, plug it in and press "Refresh devices").
+  8. Press "Start audio", play a little, and set the levels so the
+     meters stay out of the red.
+  9. Capture tab: record. Build tab: build and export your IR.
+     The exported IRs go into a "(Project Name) IRs" folder next to your
+     saved project.
+  Full details: USER_GUIDE.md (open it with Notepad or any browser).
+
+UPDATING TO A NEW VERSION
+  Extract the new zip, then copy everything in the new "AcousticIRStudio"
+  folder into your old one and choose "Replace the files". Your projects,
+  autosaves and settings are kept.
+  (Help > About in the app shows which version you have.)
+
+IF SOMETHING GOES WRONG
+  - No sound or no inputs: close the app, check the interface is plugged
+    in, reopen it, then press "Start audio".
+  - The app won't open: run it again; it writes a log to the "logs"
+    folder next to the .exe. Send that file with a report at
+    github.com/paulmcevoy75/acoustic-ir-studio/issues
+
+Created by Paul McEvoy - paulmcevoyguitars.com

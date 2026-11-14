@@ -60,6 +60,9 @@ jobs:
           Copy-Item README.md, LICENSE, THIRD_PARTY_NOTICES.md dist/AcousticIRStudio/
           Copy-Item docs/USER_GUIDE.md dist/AcousticIRStudio/USER_GUIDE.md
           $version = "1.${{ github.run_number }}"
+          $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
+          (Get-Content -Raw "docs/setup/START HERE - Windows.txt").Replace("{VERSION}", $version).Replace("{DATE}", $date).Replace("`n", "`r`n") |
+            Set-Content -NoNewline -Encoding utf8 "dist/AcousticIRStudio/START HERE - setup instructions.txt"
           $info = @{ version = $version; commit = "${{ github.sha }}".Substring(0, 7); date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm") + " UTC" }
           $info | ConvertTo-Json | Set-Content -Encoding utf8 dist/AcousticIRStudio/build_info.json
           "version=$version" >> $env:GITHUB_OUTPUT
@@ -74,13 +77,13 @@ jobs:
 
       - name: Zip
         shell: pwsh
-        run: Compress-Archive -Path dist/AcousticIRStudio -DestinationPath AcousticIRStudio-windows.zip
+        run: Compress-Archive -Path dist/AcousticIRStudio -DestinationPath "AcousticIRStudio-v${{ steps.info.outputs.version }}-windows.zip"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           retention-days: 3
           name: AcousticIRStudio-windows
-          path: AcousticIRStudio-windows.zip
+          path: AcousticIRStudio-v*-windows.zip
 
   build-mac:
     needs: test-linux
@@ -139,25 +142,16 @@ jobs:
           cp -R dist/AcousticIRStudio.app "$PKG/Acoustic IR Studio.app"
           cp README.md LICENSE THIRD_PARTY_NOTICES.md "$PKG/"
           cp docs/USER_GUIDE.md "$PKG/USER_GUIDE.md"
-          cat > "$PKG/HOW TO OPEN.txt" <<'TXT'
-          Acoustic IR Studio for Mac - first time you open it
-
-          This free app isn't registered with Apple, so macOS asks you to confirm it once:
-          1. Drag "Acoustic IR Studio" into your Applications folder (optional), then double-click it.
-             macOS says it can't verify the app - click Done.
-          2. Open System Settings > Privacy & Security, scroll down, and click "Open Anyway"
-             next to Acoustic IR Studio. Confirm with your password if asked.
-          3. When the app asks to use the microphone, click Allow (it needs this to hear your
-             instrument and mics).
-          From then on it opens normally. In the app, Setup > Driver type should be "Core Audio".
-          TXT
-          ditto -c -k --keepParent "$PKG" "AcousticIRStudio-mac-${{ matrix.arch }}.zip"
+          VERSION="1.${{ github.run_number }}"
+          sed -e "s/{VERSION}/$VERSION/" -e "s/{DATE}/$(date -u +%Y-%m-%d)/" -e "s/{ARCH}/${{ matrix.arch }}/" \
+            "docs/setup/START HERE - Mac.txt" > "$PKG/START HERE - setup instructions.txt"
+          ditto -c -k --keepParent "$PKG" "AcousticIRStudio-v$VERSION-mac-${{ matrix.arch }}.zip"
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           retention-days: 3
           name: AcousticIRStudio-mac-${{ matrix.arch }}
-          path: AcousticIRStudio-mac-${{ matrix.arch }}.zip
+          path: AcousticIRStudio-v*-mac-${{ matrix.arch }}.zip
 
   release:
     # only after the tests and the build passed, and only for main
@@ -179,14 +173,13 @@ jobs:
           sha="${GITHUB_SHA::7}"
           notes="Version $VERSION, built from commit $sha.
 
-          **Windows:** download **AcousticIRStudio-windows.zip**, unzip it, and run **AcousticIRStudio.exe**.
-          If Windows says 'Windows protected your PC', click More info -> Run anyway (the app isn't code-signed yet).
-          To update, unzip the new one over the old folder - your projects, autosaves and settings are kept.
+          **Windows:** download **AcousticIRStudio-v$VERSION-windows.zip**.
+          **Mac:** download **AcousticIRStudio-v$VERSION-mac-apple-silicon.zip** (M1 and later, most Macs from 2020 on)
+          or **AcousticIRStudio-v$VERSION-mac-intel.zip** (older Intel Macs).
 
-          **Mac:** download **AcousticIRStudio-mac-apple-silicon.zip** (Macs from 2020 on, M1 and later) or
-          **AcousticIRStudio-mac-intel.zip** (older Intel Macs), unzip it, and follow *HOW TO OPEN.txt*:
-          the first time, double-click the app, click Done, then System Settings > Privacy & Security >
-          **Open Anyway**. Allow the microphone when asked."
+          Each zip has everything needed, plus **START HERE - setup instructions.txt** with step-by-step setup
+          (including the one-time 'Run anyway' on Windows / 'Open Anyway' on Mac) and how to update.
+          Updating keeps your projects, autosaves and settings."
           ls -la *.zip
           gh release create "v$VERSION" *.zip --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" --title "Version $VERSION" --notes "$notes" --latest
