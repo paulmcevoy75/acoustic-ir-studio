@@ -488,8 +488,8 @@ class CaptureTab:
         if "drift_ppm" in rep:
             line += (f", device sync {rep['offset_ms']:+.1f} ms / {rep['drift_ppm']:+.1f} ppm"
                      + (" (session clock)" if rep.get("used_session_drift") else ""))
-        if rep.get("polarity") == "inverted":
-            line += ", mic polarity inverted vs piezo (handled automatically)"
+        # No per-take polarity note: a single take's IR peak can land on either sign in a
+        # room, so it flip-flopped between takes. The build sets polarity from all takes.
         self.logln(line)
         for w in rep["warnings"]:
             self.logln("   ! " + w)

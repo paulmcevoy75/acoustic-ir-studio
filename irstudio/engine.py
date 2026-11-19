@@ -650,15 +650,27 @@ class Accumulator:
 
         # Streaming passes (constant memory, any take length):
         # 1) provisional H including this take, 2) per-segment mismatch, 3) accumulate kept.
+        rot = 1.0          # fractional-delay correction applied to the mic (two-device mode)
+
         def spec(s):
             return (np.fft.rfft(self.win * x[s:s + self.nfft]),
-                    np.fft.rfft(self.win * y[s:s + self.nfft]))
+                    np.fft.rfft(self.win * y[s:s + self.nfft]) * rot)
         tSxx = np.zeros_like(self.Sxx)
+        tSyy = np.zeros_like(self.Syy)
         tSxy = np.zeros_like(self.Sxy)
         for s in use:
             X, Y = spec(s)
             tSxx += np.abs(X) ** 2
+            tSyy += np.abs(Y) ** 2
             tSxy += np.conj(X) * Y
+        fine0 = 0.0
+        if two_device and not self.empty():
+            # A separate USB mic's start offset can be off by a millisecond or two. Line
+            # this take up with the takes so far *before* judging segments, or good
+            # segments get thrown out just for being a little late or early.
+            fine0 = self._fine_delay(tSxx, tSyy, tSxy)
+            rot = np.exp(2j * np.pi * self.freqs / self.fs * fine0)
+            tSxy = tSxy * rot
         Href = (self.Sxy + tSxy) / np.maximum(self.Sxx + tSxx, 1e-30)
         band = (self.freqs > 80) & (self.freqs < min(10000, 0.45 * self.fs))
         errs = []
@@ -703,20 +715,15 @@ class Accumulator:
             hits += (db(be) > db(be.max()) - 45).astype(float)
 
         # residual fractional delay vs. existing estimate (two-device mode)
+        # (the kept segments already carry the early correction; this mops up what's left)
         if two_device and not self.empty():
-            Hg = self.H()
-            ph = lambda tau: np.exp(2j * np.pi * self.freqs / self.fs * tau)
-            g_t = np.abs(Sxy) ** 2 / np.maximum(Sxx * Syy, 1e-30)
-            wt = np.clip(g_t / (1 - np.clip(g_t, 0, 0.999)), 0, 50) * \
-                np.clip(self.coherence() / (1 - np.clip(self.coherence(), 0, .999)), 0, 50)
-            tau1 = ir_offset(Sxy / np.maximum(Sxx, 1e-30), Hg, self.freqs, self.fs, wt)
-            Sxy = Sxy * ph(tau1)
-            tau2 = self._phase_slope_delay(Sxy / np.maximum(Sxx, 1e-30), Hg, Sxx)
-            Sxy = Sxy * ph(tau2)
+            tau = self._fine_delay(Sxx, Syy, Sxy)
+            r2 = np.exp(2j * np.pi * self.freqs / self.fs * tau)
+            Sxy = Sxy * r2
             if dual is not None:
-                dual["S1y"] = dual["S1y"] * ph(tau1 + tau2)
-                dual["S2y"] = dual["S2y"] * ph(tau1 + tau2)
-            report["fine_align_samples"] = tau1 + tau2
+                dual["S1y"] = dual["S1y"] * r2
+                dual["S2y"] = dual["S2y"] * r2
+            report["fine_align_samples"] = fine0 + tau
 
         Ht = Sxy / np.maximum(Sxx, 1e-30)
         ht = np.fft.irfft(Ht, self.nfft)
@@ -769,6 +776,19 @@ class Accumulator:
         report["piezo_peak_db"] = float(20 * np.log10(np.max(np.abs(x)) + 1e-12))
         report["mic_peak_db"] = float(20 * np.log10(np.max(np.abs(y)) + 1e-12))
         return report
+
+    def _fine_delay(self, Sxx, Syy, Sxy):
+        """Fractional delay (samples) that lines this take's spectra up with the takes so
+        far: a coherence-weighted IR offset, then a phase-slope refinement."""
+        Hg = self.H()
+        g_t = np.abs(Sxy) ** 2 / np.maximum(Sxx * Syy, 1e-30)
+        g_g = self.coherence()
+        wt = np.clip(g_t / (1 - np.clip(g_t, 0, 0.999)), 0, 50) * \
+            np.clip(g_g / (1 - np.clip(g_g, 0, .999)), 0, 50)
+        tau1 = ir_offset(Sxy / np.maximum(Sxx, 1e-30), Hg, self.freqs, self.fs, wt)
+        Sxy = Sxy * np.exp(2j * np.pi * self.freqs / self.fs * tau1)
+        tau2 = self._phase_slope_delay(Sxy / np.maximum(Sxx, 1e-30), Hg, Sxx)
+        return tau1 + tau2
 
     def _phase_slope_delay(self, Ht, Hg, w):
         f = self.freqs

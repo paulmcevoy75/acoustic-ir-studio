@@ -88,6 +88,34 @@ def test_two_devices_drift_and_offset_are_corrected():
     assert acc.explained_db()[0] < -20
 
 
+def test_two_device_offset_error_is_fixed_before_judging_segments(monkeypatch):
+    """A USB mic's start offset can come out a millisecond or two wrong on some takes.
+    That take must be lined up before its segments are judged, or good playing is
+    thrown away as 'didn't match the piezo'."""
+    rng = np.random.default_rng(5)
+    acc = E.Accumulator(FS)
+    shifts = iter([0, 0, 0, 80])           # samples of offset error per take
+
+    def fake_align(x, y, fs, lead_ms=5.0, prior_ppm=None):
+        k = next(shifts)
+        y = np.roll(y, k)
+        return x, y, {"offset_ms": 0.0, "drift_ppm": 0.0, "lock_points": 10,
+                      "lock_resid_samples": 0.5, "used_session_drift": False,
+                      "trim": (0, len(x))}
+
+    monkeypatch.setattr(E, "align_two_device", fake_align)
+    reports = []
+    for i, notes in enumerate(SESSIONS[:4]):
+        x = playing(notes, 15, rng)
+        y = mic_of(x, rng)
+        y = y + 0.02 * np.std(y) * rng.standard_normal(len(y))   # a little room noise
+        reports.append(acc.process_take(x, y, f"t{i}", two_device=True))
+    late = reports[-1]                     # before the fix: 15 of 20 segments thrown out
+    assert late["rejected_outlier"] <= 2
+    assert abs(late["fine_align_samples"] - 80) < 2
+    assert err_db(acc, np.abs(acc.H()) ** 2) < 0.5
+
+
 def test_project_round_trip(single):
     acc, _ = single
     b = E.Accumulator.from_dict(acc.to_dict("A"), "A")
