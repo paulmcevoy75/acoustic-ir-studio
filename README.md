@@ -29,7 +29,6 @@ Every zip includes **START HERE - setup instructions.txt** with step-by-step set
 - **IRs fitted to your pedal.** Four ready-made targets (Short, Medium, Long, Ultimate) plus your own. Each is optimised for that pedal's length, not just cut off.
 - **Audition before you export.** Record a short demo and play it dry, through the mics, or through every IR at your pedal's length.
 - **Tone Match.** Make an IR from single notes so your instrument sounds like any recording (audio or video file).
-- **Dual piezo.** If your pickup has two elements, you can make an IR pair, one IR per element, for 2-input convolvers like a Daisy Seed.
 - **Safe by design.** Everything is autosaved as you go, with crash recovery and a project file you can reopen and re-export.
 
 ## Quick start

@@ -89,7 +89,6 @@ def save_to(app, data_dir, monkeypatch):
 
 def test_capture_build_audition_export_reopen(app, fake_sd, save_to):
     setup_inputs(app)
-    assert not app.inp["piezo2"]["on"].get()
     capture(app, fake_sd)
     assert app.acc["A"].n_seg > 0 and app.acc["B"].n_seg > 0
     assert "drift_ppm" in app.acc["A"].takes[-1].meta            # USB mic was clock-synced
@@ -149,18 +148,6 @@ def test_autosave_and_crash_recovery(app, fake_sd, data_dir):
     assert app.acc["A"].n_seg > 0
 
 
-def test_dual_piezo_pair(app, fake_sd, save_to):
-    setup_inputs(app, dual=True)
-    assert "same device" in app.inp["piezo2"]["info"].get()
-    capture(app, fake_sd, n=3, dual=True)
-    assert app.acc["A"].has_dual()
-    app.nb.select(app.tab_build)
-    app.build()
-    assert app.dual_pair is not None and app.v_dual_export.get()
-    app.ped_tree.selection_set(["2"])
-    app.export()
-    folder = os.path.join(os.path.dirname(save_to), "My Song IRs")
-    assert any("_P1" in f for f in os.listdir(folder)) and any("_P2" in f for f in os.listdir(folder))
 
 
 def test_only_inputs_in_use_get_meter_rows(app):
@@ -168,8 +155,8 @@ def test_only_inputs_in_use_get_meter_rows(app):
     app.inp["I"]["on"].set(False)
     app._inputs_changed()
     app.update()
-    shown = {r: bool(app.meter_row[r][0].winfo_manager()) for r in ("piezo", "piezo2", "A", "B", "I")}
-    assert shown == {"piezo": True, "piezo2": False, "A": True, "B": False, "I": False}
+    shown = {r: bool(app.meter_row[r][0].winfo_manager()) for r in ("piezo", "A", "B", "I")}
+    assert shown == {"piezo": True, "A": True, "B": False, "I": False}
 
 
 def test_bad_output_device_is_reported(app, fake_sd):
@@ -200,7 +187,7 @@ def test_finger_noise_tamer_is_off_by_default_and_saved(app, fake_sd, save_to):
     assert app.v_tame.get() and app.params().tame_hz == 4000
 
 
-def test_pedal_check_and_same_loudness_export(app, fake_sd, save_to):
+def test_same_loudness_export(app, fake_sd, save_to):
     setup_inputs(app)
     capture(app, fake_sd, n=3)
     app.nb.select(app.tab_build)
@@ -208,29 +195,4 @@ def test_pedal_check_and_same_loudness_export(app, fake_sd, save_to):
     assert app.v_norm.get() == "Same loudness as dry"
     r = app._fit("0")
     assert r["short_db"] is not None                          # the level note is computed
-
-    # the pedal's output on Input 3: the piezo through an IR that lost its low end
-    vals = list(app.inp["piezo"]["cb"]["values"])
-    app.inp["PO"]["on"].set(True)
-    app.inp["PO"]["dev"].set(next(v for v in vals if "Test Interface 4x4)  -  Input 3" in v))
-    app._inputs_changed()
-    rng = np.random.default_rng(12)
-    iface, usb = take_signals(rng, SESSIONS[0], dur=15)
-    h_ped = signal.lfilter(*signal.butter(2, 200, "high", fs=FS), H_A)
-    iface[:, 2] = signal.fftconvolve(iface[:, 0], h_ped)[:len(iface)]
-    app.open_pedal_check()
-    app.update()
-    record(app, fake_sd, iface, usb, app.pedal_check_record)
-    app.pedal_check_stop()
-    wait(app, lambda: app._pc_result is not None or "Couldn't" in app.pc_status.cget("text"), 120)
-    assert app._pc_result is not None, app.pc_status.cget("text")
-    assert app._pc_result["correction_db"][np.argmin(abs(app._pc_result["freqs"] - 100))] > 2
-    p_before = app.irm["P"].copy()
-    app.pedal_check_apply()
-    f = app.irm["freqs"]
-    assert np.interp(100, f, app.irm["P"]) > 1.5 * np.interp(100, f, p_before)   # lows added back
-    app.save_session()
-    app.pedal_corr = None
-    app.load_session(save_to)
-    assert app.pedal_corr is not None and app.params().corr is not None
-    app.pc_win.destroy()
+    assert not hasattr(app, "open_pedal_check") and "PO" not in app.inp and "piezo2" not in app.inp

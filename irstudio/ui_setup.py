@@ -68,12 +68,12 @@ class SetupTab:
                   "kind works; the others are optional. Type a label for each (e.g. 'SM57', 'USB Mic') so "
                   "you can tell them apart everywhere in the app.",
                   foreground="#555", wraplength=820, justify="left").grid(row=12, column=1, columnspan=3, sticky="w", pady=(0, 6))
-        rows = (("piezo", "Instrument (piezo / DI)", None),
+        rows = tuple(r for r in (("piezo", "Instrument (piezo / DI)", None),
                 ("piezo2", "Instrument 2 (2nd piezo element, optional)", True),
                 ("A", "Reference Mic", True),
                 ("B", "Color Mic (optional)", True),
                 ("I", "Internal Mic (optional)", True),
-                ("PO", "Pedal output (optional, for Pedal check)", True))
+                ("PO", "Pedal output (optional, for Pedal check)", True)) if r[0] in ROLES)
         self.inp_widgets = {}
         self.inp_label = {}
         for k, (role, label, togg) in enumerate(rows):
@@ -254,7 +254,7 @@ class SetupTab:
 
     def _inputs_changed(self):
         p = self._sel("piezo")
-        for role in ("piezo2", "A", "B", "I", "PO"):
+        for role in ROLES[1:]:
             v = self.inp[role]
             v["cb"].configure(state="readonly" if v["on"].get() else "disabled")
             m = self._sel(role)
@@ -276,7 +276,7 @@ class SetupTab:
                 self.meter_name[role].configure(text=self.mic_name(role))
             for s_ in SLOTS:
                 self.cov_radio[s_].configure(text=self.mic_name(s_))
-            for role in ("piezo2", "A", "B", "I", "PO"):
+            for role in ROLES[1:]:
                 c, lab = self.meter[role]
                 on = bool(self.inp[role]["on"].get())
                 if not on:

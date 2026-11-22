@@ -77,7 +77,8 @@ SLOT_LABEL = {"A": "Reference Mic", "B": "Color Mic"}
 
 
 # instrument, optional 2nd piezo element, reference mic, color mic, internal mic
-ROLES = ("piezo", "piezo2", "A", "B", "I", "PO")
+ROLES = ("piezo", "A", "B", "I")
+# Instrument 2 (dual piezo) and Pedal output (Pedal check) are Acoustic IR Studio Pro inputs.
 
 
 ROLE_BASE = {"piezo": "Instrument", "piezo2": "Instrument 2", "A": "Reference Mic", "B": "Color Mic",

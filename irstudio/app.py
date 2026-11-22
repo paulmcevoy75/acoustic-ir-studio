@@ -28,14 +28,13 @@ from .texts import TEXT_TIPS
 from .ui_audition import AuditionPanel
 from .ui_build import BuildTab
 from .ui_capture import CaptureTab
-from .ui_pedalcheck import PedalCheck
 from .ui_setup import SetupTab
 from .ui_tone import ToneMatchTab
 from .util import open_url
 from .widgets import ScrollFrame, Tooltip
 
 
-class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, PedalCheck, ProjectFiles, ToneMatchTab, tk.Tk):
+class App(SetupTab, CaptureTab, BuildTab, AuditionPanel, ProjectFiles, ToneMatchTab, tk.Tk):
     def __init__(self):
         super().__init__()
         self.build_meta = build_info()

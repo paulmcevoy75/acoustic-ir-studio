@@ -136,9 +136,9 @@ class ProjectFiles:
                 self.v_mix_link.set(bool(st["mix_link"]))
             if st.get("normalize") == "Match loudness" and not st.get("norm_v"):
                 self.v_norm.set("Same loudness as dry")     # older projects: that was just the default
-            pc = st.get("pedal_corr")
-            self.pedal_corr = (tuple(pc[0]), tuple(pc[1])) if pc else None
-            self.pedal_corr_rounds = int(st.get("pedal_corr_rounds", 0) or 0)
+            # Pedal-check corrections are an Acoustic IR Studio Pro feature; Basic builds without them
+            self.pedal_corr = None
+            self.pedal_corr_rounds = 0
             if st.get("ir_src") in ("mix", "A", "B"):
                 self.v_ir_src.set(st["ir_src"])
                 self._ir_src_pref = st["ir_src"]

@@ -24,7 +24,6 @@ Every take records all the inputs at the same time. Each dropdown lists every in
 | **Instrument** | the piezo, or a DI'd electric / bass | the interface input it's plugged into |
 | **Reference Mic** | the mic you trust most: ideally a measurement mic (USB or XLR), but any mic works (an SM57, a condenser...) | load a **calibration file** if it's a measurement mic |
 | **Color Mic** (optional) | a second mic with a sound you like | gets its own IR; mix the two by frequency on the Build tab |
-| **Instrument 2** (optional) | the second element of a dual piezo, wired to its own output | must be on the **same Interface** as the Instrument; see *Dual piezo* below |
 | **Internal Mic** (optional) | the guitar's own built-in mic, if it has one | recorded with everything else; can be blended in when you audition |
 
 - **Type a Label** for each input on the Setup tab (e.g. the mic model). That name shows on the Capture meters, the mic mix and the audition buttons. Without a label, the device and input number are shown, e.g. *Color Mic [Interface In 2]*, so it's always clear which Interface channel is which.
@@ -84,12 +83,6 @@ Every take records all the inputs at the same time. Each dropdown lists every in
   Pick your pedal first: the graph and Audition use that length. The **Error** column shows how close that length gets to the full IR; below about 1 dB is very hard to hear. Your own devices (**Add custom...**) are kept in your data folder, so updates don't remove them.
 - **Match loudness** keeps all your exported lengths at the same volume.
 - **Same loudness as dry** (the default level setting) makes each exported IR play as loud as your dry piezo, so switching the IR on doesn't drop the volume. If a file can't get that loud, the notes under the graph tell you how many dB to turn the pedal up. *Match loudness* (every length at the same level) and *Peak -1 dBFS* are still available.
-- **Pedal check** (button above the graph) checks your real pedal. Run the guitar into the pedal and the pedal's output into an interface input (Setup: turn on **Pedal output**). Record about 30 s with the Reference Mic where it was. The app then:
-  - shows what's still different between the pedal's actual sound and the mic, including whatever the pedal does itself
-  - shows how its level compares with the dry piezo
-  - can fold that difference into the IR (**Apply this correction**)
-
-  Export again, load it into the pedal and check again. One or two rounds usually get it close. The correction is saved with the project.
 - **Finger-noise tamer** (off by default): a gentle dip, built into the IR, that softens finger squeaks and string noise. Start at -3 to -4 dB around 3500 Hz and compare on and off with your demo. It also takes a little sparkle off the notes in that range. A pedal-side "de-squeak" that only acts on the noise is described in `docs/desqueak-spec.md`.
 - **Audition:** press **Record new demo** (right on the Build tab) and play up to 60 s; it records the piezo (plus the Internal Mic if it's on, and the mics only if you tick *also record the mics*). Then play it as: the piezo dry, the real mics (if recorded), or the piezo through the chosen / Reference Mic / Color Mic / Blended IR, all cut to the selected target's length.
   - Every option is level-matched, and switching while it plays carries on from the same spot.
@@ -106,7 +99,6 @@ Every take records all the inputs at the same time. Each dropdown lists every in
 - **Export selected...** exports the targets you pick; **Export ALL lengths...** exports every target in the list. Each file name says the pedal and the length, e.g. `MyGuitar_Short-Smart_Box_other_short_loaders_23ms_44.1k_1024.wav`. With *"Also save full-length IR + notes"* ticked (the default) the folder also gets:
   - `<name>_FULL_..._32f.wav`: the full-length, 32-bit float master
   - `<name>_info.txt`: settings, plus each target's length and error
-- **Dual piezo:** the IR pair (`_P1` / `_P2`) is exported automatically when the session was recorded with Instrument 2, and is off for a single piezo.
 - **File > Open an IR WAV to re-fit for pedals...** loads any IR (your own full-length master, or someone else's) and exports it for any pedal. Starting from a long IR gives the best short versions.
 
 ## Tone Match (tab 4): make your instrument sound like a recording
@@ -145,15 +137,9 @@ Choose **Instrument: double bass** on the Setup tab **before you capture**. This
 - a 22 Hz low cut
 - a longer analysis window, so the **Full IR length** can go up to 2 s (guitar sessions go up to about 1 s)
 
-## Dual piezo (two pickup elements on separate outputs)
+## Pro features
 
-If your pickup has two elements and you can wire each to its own Interface input, turn on **Instrument 2** on the Setup tab and capture as usual.
-
-- After every take, the log says what the second element adds, e.g. *"Dual piezo: a real gain: 6 dB less unexplained sound than the summed pickup, most in 125 Hz-800 Hz"*, or that the two elements say almost the same thing (then the summed pickup is just as good and there's no point wiring them separately).
-- **Build IR** still makes the normal IR (for both elements summed, as on a single-input pedal) and also an **IR pair**: one IR per element. Run element 1 through `_P1`, element 2 through `_P2`, and add the two outputs. That needs a 2-input convolver such as a Daisy Seed (stereo in); it costs about 1.5-2x the processing of one IR.
-- **Audition > Piezo 1 + 2 through the IR pair** plays exactly that, so you can compare it with the summed pickup through one IR.
-- **Export** writes the pair next to each normal file (tick *Dual piezo: also export the IR pair*); Daisy targets get `.wav`, `.bin` and `.h` for each.
-- Where the two elements don't add information, the pair automatically falls back to the summed-pickup answer, so it is never worse than the normal IR.
+Pedal check (correcting the IR for your real pedal), the dual-piezo IR pair, the Feedback tab (tap test, sine-sweep test, notch list) and the Internal Mic IR are in **Acoustic IR Studio Pro**.
 
 ## Daisy Seed / DIY firmware targets
 

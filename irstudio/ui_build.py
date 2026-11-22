@@ -124,7 +124,7 @@ class BuildTab:
                                   variable=self.v_bundle), TIPS["bundle"]).pack(side="bottom", anchor="w", padx=4)
         self.dual_ck = ttk.Checkbutton(ped, text="Dual piezo: also export the IR pair (_P1 / _P2)",
                                        variable=self.v_dual_export, state="disabled")
-        self.dual_ck.pack(side="bottom", anchor="w", padx=4)
+        # (dual-piezo export is an Acoustic IR Studio Pro feature: the checkbox isn't shown)
         dz = ttk.Checkbutton(ped, text="Daisy targets: also .bin + .h files (for the firmware)",
                              variable=self.v_daisy_files)
         dz.pack(side="bottom", anchor="w", padx=4)
@@ -189,9 +189,6 @@ class BuildTab:
         self._tip(ttk.Button(hdr, text="\u25b6 Play IR", command=self._play_ir),
                   "Plays the impulse response once (the selected target's version) through the Audition "
                   "output - a quick 'tock' you can compare between settings.").pack(side="right")
-        self._tip(ttk.Button(hdr, text="Pedal check...", command=self.open_pedal_check),
-                  "Record your IR pedal's real output next to the Reference Mic, see what's still different, "
-                  "and correct the IR for it.").pack(side="right", padx=4)
         self.fig = Figure(figsize=(7, 2.2 if self.compact else 2.8), dpi=100)
         gs = self.fig.add_gridspec(1, 2, width_ratios=[2.5, 1])
         self.ax = self.fig.add_subplot(gs[0, 0])

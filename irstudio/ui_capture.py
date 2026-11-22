@@ -406,10 +406,6 @@ class CaptureTab:
             self.rec_is_demo = False
             self._demo_done(data, fs, two)
             return
-        if getattr(self, "rec_is_pcheck", False):
-            self.rec_is_pcheck = False
-            self._pedal_check_done(data, fs, two)
-            return
         mics = {}
         for s in SLOTS:
             if s in data and len(data[s]) >= 2 * fs:
