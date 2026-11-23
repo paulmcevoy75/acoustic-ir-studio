@@ -19,6 +19,10 @@
 //   DEL <slot>                 -> @OK <slot>
 //   ABORT                      -> @OK 0
 //   BOOT                       -> @OK 0 then the pedal restarts into the bootloader
+//   (other lines go to an optional line hook, see Uploader::SetLineHook, else @ERR unknown command)
+//
+// Optional per-slot extra data (header version 2): at +0x100 in the header sector,
+// a uint32 byte count then the bytes (up to kExtraMax).  Version 1 slots have none.
 #pragma once
 #include <cstddef>
 #include <cstdint>
@@ -37,11 +41,13 @@ constexpr uint32_t kChunk      = 4096;
 constexpr uint32_t kMaxSamples = 192000; // 4 s at 48 kHz (must match conv::kMaxIrSamples)
 constexpr uint32_t kMagic      = 0x53524950; // "PIRS"
 constexpr uint32_t kNameLen    = 24;
+constexpr uint32_t kExtraOff   = 0x100;                    // in the header sector
+constexpr uint32_t kExtraMax   = kHdrSize - kExtraOff - 4; // bytes after the count
 
 struct Header
 {
     uint32_t magic;
-    uint32_t version; // 1
+    uint32_t version; // 1, or 2 = extra data at kExtraOff
     uint32_t length;  // samples
     uint32_t rate;    // Hz
     uint32_t crc;     // CRC-32 of the sample bytes
@@ -66,6 +72,8 @@ struct SlotInfo
     uint32_t       length;
     uint32_t       rate;
     const int16_t* data;
+    const uint8_t* extra;    // version 2 extra data, or nullptr
+    uint32_t       extraLen; // 0 when none
 };
 
 inline uint32_t Crc32(uint32_t crc, const uint8_t* p, uint32_t n)
@@ -91,7 +99,7 @@ inline int ScanSlots(const FlashOps& f, SlotInfo* out)
         f.invalidate(SlotOffset(s), sizeof(Header), f.ctx);
         Header h;
         std::memcpy(&h, f.map(SlotOffset(s), f.ctx), sizeof(h));
-        if(h.magic != kMagic || h.version != 1 || h.dataOff != kHdrSize || h.length == 0
+        if(h.magic != kMagic || (h.version != 1 && h.version != 2) || h.dataOff != kHdrSize || h.length == 0
            || h.length > kMaxSamples || h.rate < 8000 || h.rate > 192000)
             continue;
         SlotInfo& o = out[n++];
@@ -101,6 +109,19 @@ inline int ScanSlots(const FlashOps& f, SlotInfo* out)
         o.length             = h.length;
         o.rate               = h.rate;
         o.data               = (const int16_t*)f.map(SlotOffset(s) + kHdrSize, f.ctx);
+        o.extra              = nullptr;
+        o.extraLen           = 0;
+        if(h.version == 2)
+        {
+            f.invalidate(SlotOffset(s) + kExtraOff, kHdrSize - kExtraOff, f.ctx);
+            uint32_t n2;
+            std::memcpy(&n2, f.map(SlotOffset(s) + kExtraOff, f.ctx), 4);
+            if(n2 > 0 && n2 <= kExtraMax)
+            {
+                o.extra    = f.map(SlotOffset(s) + kExtraOff + 4, f.ctx);
+                o.extraLen = n2;
+            }
+        }
     }
     return n;
 }
@@ -162,6 +183,28 @@ class Uploader
     }
 
     bool Busy() const { return state_ != kLine; }
+
+    /** Optional handler for command lines this class does not know.  Return true if handled
+     *  (it should Reply() itself); false gives the usual "@ERR unknown command". */
+    using LineHook = bool (*)(const char* line, Uploader& up, void* ctx);
+    void SetLineHook(LineHook h, void* ctx)
+    {
+        lineHook_    = h;
+        lineHookCtx_ = ctx;
+    }
+    /** Send one reply line (include the trailing newline). */
+    void Reply(const char* s) { tx_(s, txctx_); }
+    /** Extra data stored with the NEXT successful PUT (header version 2).  Not copied: the
+     *  bytes must stay valid until that PUT ends.  Forgotten after that PUT or on any error.
+     *  Returns false if too long. */
+    bool SetExtra(const uint8_t* d, uint32_t n)
+    {
+        if(n > kExtraMax)
+            return false;
+        extra_    = d;
+        extraLen_ = n;
+        return true;
+    }
     /** Slot that was just stored / deleted, or -1.  Cleared by reading. */
     int TakeChanged()
     {
@@ -193,8 +236,9 @@ class Uploader
     }
     void Fail(const char* why)
     {
-        state_ = kLine;
-        len_   = 0;
+        state_    = kLine;
+        len_      = 0;
+        extraLen_ = 0;
         char buf[64];
         std::snprintf(buf, sizeof(buf), "@ERR %s\n", why);
         tx_(buf, txctx_);
@@ -228,7 +272,10 @@ class Uploader
         if(Starts(line_, "PING"))
         {
             char buf[64];
-            std::snprintf(buf, sizeof(buf), "@PUREIR 1 %s slots %d\n", fw_, kNumSlots);
+#ifndef PUREIR_USB_TAG
+#define PUREIR_USB_TAG "PUREIR"
+#endif
+            std::snprintf(buf, sizeof(buf), "@" PUREIR_USB_TAG " 1 %s slots %d\n", fw_, kNumSlots);
             tx_(buf, txctx_);
         }
         else if(Starts(line_, "LIST"))
@@ -298,7 +345,7 @@ class Uploader
         }
         else if(Starts(line_, "ABORT"))
             Say("@OK %d\n", 0);
-        else if(line_[0] != 0)
+        else if(line_[0] != 0 && !(lineHook_ && lineHook_(line_, *this, lineHookCtx_)))
             Fail("unknown command");
     }
 
@@ -344,6 +391,16 @@ class Uploader
         const uint32_t crc = Crc32(0, p, total_);
         if(crc != crcRun_ || crc != hdr_.crc)
             return Fail("crc mismatch");
+        if(extraLen_ > 0)
+        {
+            hdr_.version = 2;
+            uint8_t cnt[4];
+            std::memcpy(cnt, &extraLen_, 4); // the byte count, then the bytes
+            if(!f_.write(SlotOffset(slot_) + kExtraOff, cnt, 4, f_.ctx)
+               || !f_.write(SlotOffset(slot_) + kExtraOff + 4, extra_, extraLen_, f_.ctx))
+                return Fail("flash extra");
+            extraLen_ = 0;
+        }
         if(!f_.write(SlotOffset(slot_), (const uint8_t*)&hdr_, sizeof(hdr_), f_.ctx))
             return Fail("flash header");
         f_.invalidate(SlotOffset(slot_), kHdrSize, f_.ctx);
@@ -362,7 +419,7 @@ class Uploader
     volatile bool     overflow_ = false;
 
     State    state_ = kLine;
-    char     line_[96];
+    char     line_[192];
     uint32_t len_ = 0;
 
     Header   hdr_{};
@@ -373,6 +430,11 @@ class Uploader
 
     int  changed_ = -1;
     bool boot_    = false;
+
+    LineHook lineHook_    = nullptr;
+    void*    lineHookCtx_ = nullptr;
+    const uint8_t* extra_ = nullptr;
+    uint32_t extraLen_ = 0;
 };
 
 } // namespace store

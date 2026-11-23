@@ -109,6 +109,51 @@ int main()
     // name-less PUT works
     r = Put(u, t, 3, b, ""); assert(r.find("@OK 3") != std::string::npos);
 
+    // ---- hooks for extended builds (see Uploader::SetLineHook / SetExtra)
+    // version-1 slots have no extra data
+    n = ScanSlots(ff.ops(), si); assert(n >= 1);
+    for(int i = 0; i < n; ++i) assert(si[i].extra == nullptr && si[i].extraLen == 0);
+    // a line hook may take unknown commands; it can attach extra data to the next PUT
+    struct HookState { int calls = 0; } hs;
+    u.SetLineHook([](const char* line, Uploader& up, void* c) -> bool {
+        ++((HookState*)c)->calls;
+        if(std::strncmp(line, "EXTRA ", 6) != 0) return false;
+        static char keep[256]; // the hook owns the bytes until the PUT is done
+        std::snprintf(keep, sizeof keep, "%s", line + 6);
+        up.SetExtra((const uint8_t*)keep, (uint32_t)std::strlen(keep));
+        up.Reply("@OK 0\n");
+        return true;
+    }, &hs);
+    g_out.clear(); Pump(u, "FOO\n", t); assert(Has("@ERR unknown") && hs.calls == 1);
+    // long command lines (up to 191 characters) arrive whole
+    const std::string longText(180, 'x');
+    g_out.clear(); Pump(u, "EXTRA " + longText + "\n", t); assert(Has("@OK 0") && hs.calls == 2);
+    r = Put(u, t, 6, b, "WithExtra"); assert(r.find("@OK 6") != std::string::npos);
+    n = ScanSlots(ff.ops(), si);
+    {
+        const SlotInfo* s6 = nullptr;
+        for(int i = 0; i < n; ++i) if(si[i].slot == 6) s6 = &si[i];
+        assert(s6 && s6->extraLen == longText.size() && std::memcmp(s6->extra, longText.data(), longText.size()) == 0);
+        assert(std::memcmp(s6->data, b.data(), b.size() * 2) == 0);
+    }
+    // extra data is used once: the next PUT is a plain version-1 slot
+    r = Put(u, t, 7, b, "Plain"); assert(r.find("@OK 7") != std::string::npos);
+    n = ScanSlots(ff.ops(), si);
+    for(int i = 0; i < n; ++i) if(si[i].slot == 7) assert(si[i].extra == nullptr);
+    // an error drops pending extra data
+    g_out.clear(); Pump(u, "EXTRA abc\n", t);
+    g_out.clear(); Pump(u, "PUT 9 100 0 x\n", t); assert(Has("@ERR bad slot"));
+    r = Put(u, t, 4, b, "AfterErr"); assert(r.find("@OK 4") != std::string::npos);
+    n = ScanSlots(ff.ops(), si);
+    for(int i = 0; i < n; ++i) if(si[i].slot == 4) assert(si[i].extra == nullptr);
+    // too much extra data is refused
+    {
+        std::vector<uint8_t> tooBig(kExtraMax + 1, 1);
+        assert(!u.SetExtra(tooBig.data(), (uint32_t)tooBig.size()));
+    }
+    u.SetLineHook(nullptr, nullptr);
+    g_out.clear(); Pump(u, "EXTRA x\n", t); assert(Has("@ERR unknown"));
+
     // nothing outside the slot area was ever erased/written (the firmware lives below kBase)
     for(uint32_t i = 0; i < kBase; ++i) assert(ff.mem[i] == 0xFF);
     printf("upload protocol: all tests passed (%d erases, %d writes)\n", ff.erases, ff.writes);

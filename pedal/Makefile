@@ -4,12 +4,12 @@
 #   make program-dfu         flash over USB (hold BOOT, tap RESET, then tap RESET again)
 #
 # LIBDAISY_DIR must point at a recent libDaisy checkout (built with `make -C ... `).
-TARGET = PureIR
+TARGET ?= PureIR
 
 DEBUG = 0
 OPT   = -O3
 
-CPP_SOURCES = src/main.cpp
+CPP_SOURCES = src/main.cpp $(EXTRA_SOURCES)   # EXTRA_SOURCES: your own hooks (see src/hooks.h)
 
 # BOOT_SRAM: the Daisy bootloader copies the app from QSPI into SRAM and runs it.
 APP_TYPE = BOOT_SRAM

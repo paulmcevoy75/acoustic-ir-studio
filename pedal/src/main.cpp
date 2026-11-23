@@ -14,8 +14,11 @@
 #include "ir_loader.h"
 #include "link.h"
 #include "upload.h"
+#include "hooks.h"
 
+#ifndef PUREIR_VERSION
 #define PUREIR_VERSION "0.2.1"
+#endif
 
 using namespace daisy;
 using namespace daisy::pedal_devkit;
@@ -115,6 +118,8 @@ static FswState g_fsw1, g_fsw2;
 static float    g_lastV[pureir::kNumParams];
 static int      g_lastEngine = -1;
 
+static pureir::hooks::Context& HookCtx();
+
 static void ReadControls()
 {
     using namespace pureir;
@@ -127,12 +132,18 @@ static void ReadControls()
     // bank (3-way switch)
     const int pos  = hw.sw1.Read();
     const int bank = pos == Switch3::POS_UP ? 0 : (pos == Switch3::POS_DOWN ? 2 : 1);
-    g_params.SelectBank(bank);
 
-    float knob[kKnobs];
+    hooks::Controls hc;
+    hc.bank        = bank;
+    hc.fsw1Pressed = hw.fsw_1.Pressed();
+    hc.fsw1Rising  = hw.fsw_1.RisingEdge();
     for(int k = 0; k < kKnobs; ++k)
-        knob[k] = hw.pot[k].Value();
-    g_params.UpdateKnobs(knob);
+        hc.knob[k] = hw.pot[k].Value();
+    hooks::OnControls(HookCtx(), hc);
+
+    g_params.SelectBank(bank);
+    if(!hc.knobsTaken)
+        g_params.UpdateKnobs(hc.knob);
 
     // reverb engine = 2 bits from SW2 / SW3
     const int engine = (hw.sw2.Pressed() ? 2 : 0) + (hw.sw3.Pressed() ? 1 : 0);
@@ -153,7 +164,8 @@ static void ReadControls()
     }
 
     // footswitches
-    switch(PollFsw(hw.fsw_1, g_fsw1))
+    const FswEvent e1 = PollFsw(hw.fsw_1, g_fsw1);
+    switch(hc.suppressFsw1 ? kNone : e1)
     {
         case kTap: g_chain.SetBypass(!g_chain.Bypassed()); break;
         case kHold: g_chain.SetMute(!g_chain.Muted()); break;
@@ -348,6 +360,24 @@ static void UsbTx(const char* line, void*)
 }
 static pureir::store::Uploader g_up(kFlash, UsbTx, nullptr, PUREIR_VERSION);
 
+// ---- optional hooks (hooks.h): these do nothing unless a build supplies its own --------
+static pureir::hooks::Context& HookCtx()
+{
+    static pureir::hooks::Context c{g_chain, g_params, g_up};
+    return c;
+}
+namespace pureir
+{
+namespace hooks
+{
+__attribute__((weak)) void Setup(Context&) {}
+__attribute__((weak)) void OnControls(Context&, Controls&) {}
+__attribute__((weak)) void OnIrLoaded(Context&, int, const store::SlotInfo*) {}
+__attribute__((weak)) void Poll(Context&, uint32_t) {}
+__attribute__((weak)) void NormalLed(Context&, uint32_t, float&, float&, float&) {}
+} // namespace hooks
+} // namespace pureir
+
 static void UsbRx(uint8_t* buf, uint32_t* len)
 {
     // a lone 'b' (typed in a serial monitor) restarts into the bootloader, ready for flashing
@@ -429,6 +459,10 @@ static bool LoadIr(int idx)
     g_irIndex    = idx;
     g_error      = false;
     g_busy       = false;
+    if(isUsb)
+        hooks::OnIrLoaded(HookCtx(), g_usb[idx - g_nSd].slot, &g_usb[idx - g_nSd]);
+    else
+        hooks::OnIrLoaded(HookCtx(), -1, nullptr);
 #ifdef PUREIR_DIAG
     DLOG("LOAD ok idx=%d name=%s len=%d samples after %d ms", idx, g_curName, (int)res.len, (int)(System::GetNow() - g_dLoadStart));
 #endif
@@ -515,6 +549,7 @@ int main()
     g_params.Init();
     for(int i = 0; i < kNumParams; ++i)
         g_lastV[i] = -1e9f;
+    hooks::Setup(HookCtx());
 
     // ---- display UART (TX only) ----------------------------------------------
     UartHandler::Config uc;
@@ -602,6 +637,7 @@ int main()
             DLOG("UPLOAD slot %d changed; %d IRs stored in flash", changedSlot, g_nUsb);
 #endif
         }
+        hooks::Poll(HookCtx(), now);
         if(g_up.TakeBoot())
             System::ResetToBootloader(System::BootloaderMode::DAISY_INFINITE_TIMEOUT);
 
@@ -639,6 +675,9 @@ int main()
             // loop (about 1 kHz), which is too slow for dim levels and made the idle green flicker.
             const bool blink = (now & 255) < 128;
             float r = 0.f, g = 1.f, b = 0.f;
+            const bool normal = !(g_busy || g_up.Busy() || g_error || overload || g_chain.Muted());
+            if(normal)
+                hooks::NormalLed(HookCtx(), now, r, g, b);
             if(g_busy || g_up.Busy())
             {
                 r = 0.f; g = 0.f; b = blink ? 1.f : 0.f;

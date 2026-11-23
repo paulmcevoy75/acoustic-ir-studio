@@ -145,5 +145,18 @@ housing/                3D-printable base tray (make_base.py -> PureIR-base.stl)
 tests/                  PC tests
 ```
 
+## Extending PureIR
+PureIR stays plain IR playback. A build that adds its own features does not need to edit
+PureIR's files:
+- `src/hooks.h`: setup, controls, after-IR-load, main-loop and LED hooks. Put your versions in
+  your own `.cpp` and build with `make EXTRA_SOURCES=src/yours.cpp`; PureIR's empty defaults
+  are replaced automatically.
+- `Chain::SetHooks()`: two audio block hooks (after input gain, and after the IR blend).
+- `Uploader::SetLineHook()` / `SetExtra()`: extra USB commands, and extra data stored with an IR.
+- Names: `make TARGET=Name EXTRA_DEFS='-DPUREIR_VERSION=\"x\" -DPUREIR_USB_TAG=\"NAME\" -DPUREIR_LINK_TAG=\"NAME\"'`
+  (delete `build/main.o` after changing EXTRA_DEFS).
+- Uploader (`tools/pureir-upload`): add a `.go` file whose `init()` sets `productName`, `exeName`,
+  `pingTag`, `fileHooks` and `beforePut`.
+
 ## Licence
 GPL-3.0, the same as Acoustic IR Studio (see `../LICENSE`). Uses libDaisy (MIT).

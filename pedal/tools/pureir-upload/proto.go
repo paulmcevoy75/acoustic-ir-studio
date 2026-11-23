@@ -59,14 +59,30 @@ func (s *Session) send(line string) error {
 	return err
 }
 
+// Command sends one line and returns the pedal's first reply line ("@ERR ..." is an error).
+func (s *Session) Command(line string, timeout time.Duration) (string, error) {
+	s.buf = nil
+	if err := s.send(line); err != nil {
+		return "", err
+	}
+	r, ok := s.readLine(timeout)
+	if !ok {
+		return "", errors.New("the pedal did not answer")
+	}
+	if strings.HasPrefix(r, "@ERR") {
+		return r, errors.New("the pedal said: " + strings.TrimSpace(strings.TrimPrefix(r, "@ERR")))
+	}
+	return r, nil
+}
+
 func (s *Session) Ping() bool {
 	s.buf = nil
 	if s.send("PING") != nil {
 		return false
 	}
 	line, ok := s.readLine(700 * time.Millisecond)
-	if ok && strings.HasPrefix(line, "@PUREIR") {
-		s.Info = strings.TrimPrefix(line, "@PUREIR ")
+	if ok && strings.HasPrefix(line, pingTag+" ") {
+		s.Info = strings.TrimPrefix(line, pingTag+" ")
 		return true
 	}
 	return false

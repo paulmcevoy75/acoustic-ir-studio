@@ -1,6 +1,12 @@
 PureIR change log
 =================
 
+Not released yet (no new firmware for the pedal; sound and controls are unchanged)
+  - PureIR now lives in the open Acoustic IR Studio repo, in pedal/ (GPL-3.0).
+  - For builds that add their own features: optional hook points (src/hooks.h), two audio
+    block hooks in the signal chain, extra uploader commands and per-IR extra data, and
+    build-time names. With no hooks, the output is bit-for-bit the same as v0.2.1 (checked).
+
 v0.2.1
   - FIX: the left LED no longer flickers. All its colours are now steady and full brightness:
     green = ready, blue blinking = loading, red = IR problem, magenta = processor behind,

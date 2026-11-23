@@ -68,7 +68,10 @@ inline size_t BuildFrame(char* out, size_t cap, const LinkStatus& s)
     if(cap < 200)
         return 0;
     *p++ = '$';
-    const char* tag = "PUREIR,1,";
+#ifndef PUREIR_LINK_TAG
+#define PUREIR_LINK_TAG "PUREIR"
+#endif
+    const char* tag = PUREIR_LINK_TAG ",1,";
     while(*tag)
         *p++ = *tag++;
     const int head[] = {s.bank, s.engine, s.irIndex, s.irCount, (int)s.flags,

@@ -99,6 +99,17 @@ class Chain
         verb_.SetParams(decay, v[16] * 0.01f, v[17] * 0.01f, 12.f, 0.4f);
     }
 
+    /** Optional block hooks for builds that add their own processing (null = none).
+     *  input:  after DC block / piezo comp / input gain, before low cut + limiter.
+     *  postIr: on the dry/IR blend, before the EQ.  Both run in the audio callback. */
+    using BlockHook = void (*)(float* x, int n, void* ctx);
+    void SetHooks(BlockHook input, BlockHook postIr, void* ctx)
+    {
+        hookInput_  = input;
+        hookPostIr_ = postIr;
+        hookCtx_    = ctx;
+    }
+
     /** exactly conv::kBlock samples */
     void ProcessBlock(const float* in, float* outL, float* outR)
     {
@@ -114,10 +125,12 @@ class Chain
             float v       = dc_.Process(s);
             const float c = sComp_.Process(compAmt_);
             v             = v + c * (piezo_.Process(v) - v);
-            v *= sInGain_.Process(inGain_);
-            v = lowCut2_.Process(lowCut_.Process(v));
-            x[i] = SoftLimit(v);
+            x[i] = v * sInGain_.Process(inGain_);
         }
+        if(hookInput_)
+            hookInput_(x, kBlock, hookCtx_);
+        for(int i = 0; i < kBlock; ++i)
+            x[i] = SoftLimit(lowCut2_.Process(lowCut_.Process(x[i])));
         // IR: always run, so the history is right when the mix comes up
         conv_.Process(x, y);
 
@@ -125,7 +138,13 @@ class Chain
         for(int i = 0; i < kBlock; ++i)
         {
             const float m = sIrMix_.Process(irMix_);
-            float       v = x[i] + m * (y[i] - x[i]);
+            y[i]          = x[i] + m * (y[i] - x[i]);
+        }
+        if(hookPostIr_)
+            hookPostIr_(y, kBlock, hookCtx_);
+        for(int i = 0; i < kBlock; ++i)
+        {
+            float v = y[i];
             for(auto& b : eq_)
                 v = b.Process(v);
             if(compOn_)
@@ -207,5 +226,7 @@ class Chain
     float cache_[6];
     float eqCache_[4] = {1e9f, 1e9f, 1e9f, 1e9f};
     float dry_[conv::kBlock];
+    BlockHook hookInput_ = nullptr, hookPostIr_ = nullptr;
+    void*     hookCtx_   = nullptr;
 };
 } // namespace pureir

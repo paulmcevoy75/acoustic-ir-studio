@@ -1,6 +1,7 @@
 // Host tests: g++ -std=c++17 -O2 -I../src host_test.cpp
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 #include <random>
 #include <complex>
@@ -363,6 +364,47 @@ static void TestChain()
     CHECK(pk <= 1.0001f, "soft limiter exceeded 1.0: %g", pk);
 }
 
+// ---------------------------------------------------------------- chain hooks
+// Runs 2 s of noise bursts through a chain; returns the output.  mode 0 = no hooks,
+// 1 = hooks that do nothing (must give the same bits), 2 = input hook that silences.
+static std::vector<float> RunHooked(int mode, int* calls)
+{
+    ConvMem cm; std::vector<float> rv(Reverb::kMemFloats, 5.f);
+    static Chain ch; ch.Init(cm.m, rv.data());
+    const int L = 24000; std::vector<float> h(L);
+    std::mt19937 r2(99); std::uniform_real_distribution<float> U(-1.f, 1.f);
+    for(int i = 0; i < L; ++i) h[i] = U(r2) * std::exp(-6.f * i / L) * 0.03f;
+    auto* s = ch.Conv().Inactive(); ch.Conv().BuildSet(s, h.data(), L, nullptr, nullptr); ch.Conv().QueueSwap(s);
+    float v[kNumParams]; for(int i = 0; i < kNumParams; ++i) v[i] = kParamDefs[i].def;
+    v[1] = 40.f;
+    ch.SetParams(v, Reverb::kPlate);
+    Chain::BlockHook count = [](float*, int n, void* c) { *(int*)c += n; };
+    Chain::BlockHook zero  = [](float* x, int n, void* c) { *(int*)c += n; for(int i = 0; i < n; ++i) x[i] = 0.f; };
+    if(mode == 0) ch.SetHooks(nullptr, nullptr, nullptr);
+    if(mode == 1) ch.SetHooks(count, count, calls);
+    if(mode == 2) ch.SetHooks(zero, nullptr, calls);
+    std::vector<float> out; float in[64], l[64], r[64];
+    for(int b = 0; b < 48000 * 2 / 64; ++b)
+    {
+        for(int i = 0; i < 64; ++i) in[i] = (b % 300 < 120 ? 0.5f * U(r2) : 0.f);
+        ch.ProcessBlock(in, l, r);
+        while(ch.Conv().ServiceBackground()) {}
+        out.insert(out.end(), l, l + 64); out.insert(out.end(), r, r + 64);
+    }
+    ch.SetHooks(nullptr, nullptr, nullptr);
+    return out;
+}
+static void TestChainHooks()
+{
+    int c1 = 0, c2 = 0;
+    const auto a = RunHooked(0, nullptr), b = RunHooked(1, &c1), z = RunHooked(2, &c2);
+    CHECK(std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0, "do-nothing hooks changed the output");
+    CHECK(c1 == 2 * 48000 * 2 / 64 * 64, "hooks called for %d samples", c1);
+    float pk = 0; for(size_t i = z.size() / 2; i < z.size(); ++i) pk = std::fmax(pk, std::fabs(z[i]));
+    CHECK(c2 > 0 && pk < 1e-6f, "silencing input hook: tail peak %g", pk);
+    printf("chain hooks: no-op hooks bit-identical, input hook works (tail peak %.1g)\n", pk);
+}
+
 int main()
 {
     TestFft();
@@ -379,6 +421,7 @@ int main()
     TestLink();
     TestParams();
     TestChain();
+    TestChainHooks();
     printf(fails ? "\n%d FAILURES\n" : "\nALL TESTS PASSED\n", fails);
     return fails != 0;
 }

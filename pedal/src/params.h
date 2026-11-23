@@ -110,6 +110,11 @@ class ParamSet
         if(b == bank_)
             return;
         bank_ = b;
+        Rearm();
+    }
+    /** Re-arm pickup of every knob (each one waits until it reaches its stored value). */
+    void Rearm()
+    {
         for(int k = 0; k < kKnobs; ++k)
             picked_[k] = false;
     }

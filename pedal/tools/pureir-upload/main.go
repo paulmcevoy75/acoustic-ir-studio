@@ -21,6 +21,18 @@ import (
 
 const version = "1.0"
 
+// Settings and hooks for builds that add their own .go file to this folder
+// (set them from that file's init(); extra command-line flags can be registered there too).
+var (
+	productName = "PureIR"        // shown in messages
+	exeName     = "pureir-upload" // shown in the help text
+	pingTag     = "@PUREIR"       // first word of the pedal's PING reply
+	// fileHooks get every command-line file that is not a .wav; return true to take it.
+	fileHooks []func(path string) bool
+	// beforePut runs just before each IR is sent (for example to send extra data with it).
+	beforePut []func(s *Session, slot int, wavPath string) error
+)
+
 var pause = true
 
 func finish(code int) {
@@ -93,13 +105,13 @@ func main() {
 	name := flag.String("name", "", "name to show for the IR (default: the file name)")
 	noPause := flag.Bool("no-pause", false, "do not wait for Enter at the end")
 	flag.Usage = func() {
-		fmt.Println("PureIR IR uploader " + version)
+		fmt.Println(productName + " IR uploader " + version)
 		fmt.Println("\nDrag a .wav file onto this program, or run:")
-		fmt.Println("  pureir-upload my-guitar.wav [more.wav ...]")
-		fmt.Println("  pureir-upload --slot 2 my-guitar.wav      replace slot 2")
-		fmt.Println("  pureir-upload list                        show what is stored")
-		fmt.Println("  pureir-upload delete 2                    empty slot 2")
-		fmt.Println("  pureir-upload boot                        restart the pedal into the bootloader (for flashing)")
+		fmt.Println("  " + exeName + " my-guitar.wav [more.wav ...]")
+		fmt.Println("  " + exeName + " --slot 2 my-guitar.wav      replace slot 2")
+		fmt.Println("  " + exeName + " list                        show what is stored")
+		fmt.Println("  " + exeName + " delete 2                    empty slot 2")
+		fmt.Println("  " + exeName + " boot                        restart the pedal into the bootloader (for flashing)")
 		fmt.Println("\nOptions:")
 		flag.PrintDefaults()
 	}
@@ -125,10 +137,10 @@ func main() {
 	}
 	pause = !*noPause
 
-	fmt.Println("PureIR IR uploader " + version)
+	fmt.Println(productName + " IR uploader " + version)
 	s, pname := findPedal(*port)
 	if s == nil {
-		die("could not find the pedal.\n  - Is the USB cable in the Daisy module's own USB-C socket, and the pedal powered?\n  - Is it running PureIR v0.2.0 or newer? (older versions cannot take IRs over USB)\n  - If an upload was interrupted, wait 10 seconds and try again.\n  - You can name the port yourself: pureir-upload --port COM5 ...")
+		die("could not find the pedal.\n  - Is the USB cable in the Daisy module's own USB-C socket, and the pedal powered?\n  - Is it running " + productName + " v0.2.0 or newer? (older versions cannot take IRs over USB)\n  - If an upload was interrupted, wait 10 seconds and try again.\n  - You can name the port yourself: " + exeName + " --port COM5 ...")
 	}
 	defer s.p.Close()
 	fmt.Printf("Found the pedal on %s (%s)\n", pname, s.Info)
@@ -148,7 +160,7 @@ func main() {
 	switch args[0] {
 	case "delete":
 		if len(args) < 2 {
-			die("usage: pureir-upload delete <slot 0-7>")
+			die("usage: %s delete <slot 0-7>", exeName)
 		}
 		n, err := strconv.Atoi(args[1])
 		if err != nil || n < 0 || n > 7 {
@@ -179,6 +191,23 @@ func main() {
 	if len(args) > 1 && *slot >= 0 {
 		die("--slot can only be used with a single file")
 	}
+	// files a hook takes (not IRs) are handled first
+	var wavs []string
+	for _, file := range args {
+		taken := false
+		if !strings.EqualFold(filepath.Ext(file), ".wav") {
+			for _, h := range fileHooks {
+				if h(file) {
+					taken = true
+					break
+				}
+			}
+		}
+		if !taken {
+			wavs = append(wavs, file)
+		}
+	}
+	args = wavs
 	failed := 0
 	for _, file := range args {
 		fmt.Printf("\n%s\n", filepath.Base(file))
@@ -222,6 +251,17 @@ func main() {
 			fmt.Println("  note: longer than 4 seconds, so the end was cut off")
 		}
 		fmt.Printf("  sending to slot %d as \"%s\" (%.2f s)\n", n, nm, float64(len(samples))/outRate)
+		hookErr := error(nil)
+		for _, h := range beforePut {
+			if hookErr = h(s, n, file); hookErr != nil {
+				break
+			}
+		}
+		if hookErr != nil {
+			fmt.Printf("  FAILED: %v\n", hookErr)
+			failed++
+			continue
+		}
 		if err := s.Put(n, nm, samples, bar); err != nil {
 			fmt.Println()
 			fmt.Printf("  FAILED: %v\n", err)
