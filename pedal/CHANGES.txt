@@ -1,0 +1,34 @@
+PureIR change log
+=================
+
+v0.2.1
+  - FIX: the left LED no longer flickers. All its colours are now steady and full brightness:
+    green = ready, blue blinking = loading, red = IR problem, magenta = processor behind,
+    yellow blinking = muted (was dim amber).
+  - FIX: a damaged WAV file on the SD card could freeze the pedal while loading. It is now
+    skipped (left LED red) and the previous IR keeps playing.
+  - FIX: a WAV file containing invalid numbers could silence the pedal. Those samples are now zeroed.
+  - FIX: an IR upload can no longer be mistaken for the "restart into bootloader" command.
+  - Uploader: reports an error if the USB connection stops taking data, instead of carrying on.
+  - The PC tests also run on Windows now.
+
+v0.2.0
+  - NEW: put your own IRs on the pedal over USB, no SD card and no re-flashing.
+    Up to 8 IRs are kept in the pedal's flash memory (they come before the built-in IRs).
+    Use uploader/pureir-upload.exe: drag a WAV file onto it.
+  - Safe by design: an IR only counts once it has been written AND read back with a matching
+    checksum, so an interrupted upload never leaves a broken IR. The firmware area is never touched.
+  - Output is muted while an IR is being stored; the left LED blinks blue.
+  - Sending the letter b over USB (or "pureir-upload boot") restarts into the bootloader without the buttons.
+
+v0.1.1
+  - Your Acoustic IR Builder IRs are built into the firmware, so no SD card is needed:
+    MyGuitar 0.5s (starts here), MyGuitar 1s, Neutral.
+  - IRs on an SD card still work and come first in the list.
+  - tools/ir2header.py reads float WAV files and lets you name each IR.
+  - New diagnostic file (PureIR-diag.bin): USB text log, clear status colours, and the
+    letter b in a serial monitor re-enters the bootloader (no BOOT/RESET buttons).
+  - Manual updated: flash through the Daisy module's own USB-C port; built-in IRs; feedback tips.
+
+v0.1.0
+  - First release: IR convolution from SD card, reverb, 4-band EQ, compressor, boost.

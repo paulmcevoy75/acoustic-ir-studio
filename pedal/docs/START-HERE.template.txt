@@ -1,0 +1,121 @@
+PureIR firmware {VERSION}  -  START HERE
+==========================================
+
+WHAT IS IN THIS ZIP
+  firmware/PureIR.bin        The firmware. This is the file you flash.
+  firmware/PureIR-diag.bin   Same firmware plus a USB text log (only needed if something misbehaves).
+  uploader/pureir-upload.exe Puts your own IRs on the pedal over USB (see PART D).
+  your-IRs/                  Your guitar IR files (WAV). Already built into PureIR.bin;
+                             copy them to an SD card only if you want them there too.
+  docs/PureIR-Manual.pdf     The full manual (controls, lights, problems).
+  docs/PureIR-controls.png   One-page picture of the knobs and switches.
+  CHANGES.txt                What is new in this version.
+
+WHAT YOU NEED
+  - The pedal board with the Daisy Seed fitted.
+  - A USB-C cable and a computer with Chrome or Edge (not Safari, not Firefox).
+  - The 9 V power supply.
+  - NO SD card is needed for this version.
+  - Windows (the uploader is a Windows program).
+
+PART A - FIRST TIME ONLY: install the Daisy bootloader
+  (Skip this if you have already flashed this pedal before.)
+  1. Plug the USB-C cable into the USB-C socket on the DAISY MODULE itself
+     (the small module with the BOOT and RESET buttons).
+     Do NOT use the other USB-C socket on the main board.
+  2. Plug in the 9 V power.
+  3. On the Daisy module: hold BOOT, tap RESET, let go of BOOT.
+  4. On the computer open  https://flash.daisy.audio
+  5. Click the "Bootloader" tab and flash the bootloader. Choose the Daisy device if asked.
+  6. Wait for "done".
+
+PART B - LOAD THE FIRMWARE (do this every time you update)
+  1. Tap RESET once (do not hold BOOT). The Daisy light pulses for about 2.5 seconds.
+     Do steps 2 and 3 inside that time.
+  2. On https://flash.daisy.audio click the "File Upload" tab.
+  3. Choose firmware/PureIR.bin and click Flash.
+  4. Wait for "done", then tap RESET once more.
+  Updating from v0.2.0: only Part B is needed. IRs you uploaded over USB should still be
+  there afterwards; if they are gone, upload them again (Part D).
+
+  If you see "incompatible binary": do Part A first.
+  If you see a USB error: unplug, tap RESET, and try again.
+
+PART C - PLUG IN AND PLAY
+  1. Guitar into the LEFT input (IN L). The right input does nothing.
+  2. Amp or headphones into OUT L (and OUT R if you want both sides).
+  3. Plug in the 9 V power.
+  4. After about 5 seconds the LEFT LED (by the SD slot) glows green = ready.
+  5. LEFT footswitch: tap = effect on/off (RIGHT LED lit = effect on).
+     Hold it for a second = mute.
+  6. RIGHT footswitch: tap = next IR, hold = previous IR.
+     IRs in this version: MyGuitar 0.5s (starts here), MyGuitar 1s, Neutral.
+
+PART D - ADD YOUR OWN IRs OVER USB (no SD card, no re-flashing)
+  The pedal can keep up to 8 of your IRs. They come before the built-in ones in the list,
+  so the first IR you upload is the one the pedal starts on.
+  1. USB-C cable into the DAISY MODULE socket, pedal powered, PureIR.bin or PureIR-diag.bin running.
+  2. Close any serial monitor or Arduino window first (only one program can use the port).
+  3. Drag a .wav file onto  uploader/pureir-upload.exe
+     (drag several to fill the next free slots).
+  4. Wait for "done". The output is muted for a few seconds while it stores the IR,
+     then the new IR plays. The LEFT LED blinks blue while it works.
+  5. RIGHT footswitch: tap = next IR, hold = previous IR.
+  Any WAV works: any sample rate, 16/24/32-bit or float, mono or stereo. It is converted
+  to 48 kHz mono, and anything over 4 seconds is cut off.
+  Windows may say "unknown publisher": click "More info", then "Run anyway".
+
+  More commands (open a Command Prompt in the uploader folder):
+    pureir-upload list              show the stored IRs
+    pureir-upload delete 2          empty slot 2
+    pureir-upload --slot 2 my.wav   replace slot 2
+    pureir-upload boot              restart the pedal into the bootloader (for flashing)
+  If it says it cannot find the pedal: check the cable is in the Daisy module's socket, the
+  pedal is on, and wait 10 seconds if an upload was interrupted.
+
+PART E - PLEASE TEST THESE IN {VERSION} (about 5 minutes)
+  1. Power up. The LEFT LED should be a steady green, with no flicker.
+  2. Tap the RIGHT footswitch. Does the IR change? (MyGuitar 0.5s -> MyGuitar 1s -> Neutral)
+  3. If it does NOT change:
+     a. Unplug the power.
+     b. Swap the two footswitches: the left one into the FSW_2 header, the right one into FSW_1.
+     c. Power up and tap each footswitch.
+     d. Tell Claude which of these happened:
+        A = the switch now in FSW_2 still does not change the IR
+        B = the switch now in FSW_1 does not turn the effect on/off
+        C = both work now
+  4. Tell Claude whether the Daisy light (small LED on the Daisy module) is on all the time.
+
+LIGHTS
+  Left LED   green = ready, blue blinking = loading, red = IR problem,
+             magenta = processor behind, yellow blinking = muted.
+  Right LED  lit = effect on.
+  Daisy light  on = processor more than 90% busy.
+
+IF THE GUITAR FEEDS BACK WITH THE EFFECT ON
+  Try these one at a time (SW1 = the three-way switch):
+  1. SW1 middle: turn K6 (Piezo comp) down.
+  2. SW1 middle: turn K5 (Low cut) up.
+  3. SW1 left: turn K2 (Reverb amount) down, then K4 (Output) down.
+  A knob does nothing until you turn it past the position the pedal has stored for it.
+
+IF SOMETHING IS WRONG - USE THE DIAGNOSTIC FILE
+  1. Flash firmware/PureIR-diag.bin the same way as Part B.
+  2. Leave the USB cable in the DAISY MODULE socket and open a serial monitor
+     (the Arduino IDE Serial Monitor works; the baud rate does not matter).
+  3. It prints once a second: loop speed, processor load, and how many times each
+     footswitch has been pressed. Copy 10-20 lines and send them to Claude.
+  4. Left LED in the diag build: blue = loading, green = IR loaded, red = load failed,
+     cyan = no SD card (built-in IRs in use), yellow = card found but no WAV files.
+  5. To flash a new file without touching BOOT/RESET: type the letter b in the serial
+     monitor and send it (or run pureir-upload boot). The pedal then waits in the bootloader.
+  Go back to PureIR.bin (Part B) when you are done testing.
+
+KNOWN OPEN POINTS IN {VERSION}
+  - The right footswitch was not changing the IR on one test. No firmware fault was found:
+    swap the two footswitches between FSW_1 and FSW_2 and tell Claude which one stops working.
+  - The left LED flicker should be gone (the LED now uses steady, full colours).
+    The Daisy light staying on is still being looked at. The sound itself was fine.
+  - The USB uploader was tested on a PC against a simulated pedal, not on a real board yet.
+    Please try it and tell Claude exactly what the window says.
+  - Not yet tested on a board: this exact build. Tell Claude what you see.

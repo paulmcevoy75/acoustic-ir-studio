@@ -1,0 +1,8 @@
+build/
+*.o
+*.bin
+*.elf
+*.map
+__pycache__/
+irs/
+deliverables/
