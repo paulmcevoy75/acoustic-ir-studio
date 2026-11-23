@@ -1,6 +1,7 @@
 // g++ -std=c++17 -I../src -I../display/PureIR_Display display_parser_test.cpp
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include "link.h"
 #include "../display/PureIR_Display/link_parser.h"
 #include "../display/PureIR_Display/params_table.h"
@@ -34,6 +35,23 @@ int main()
        || a.inDb != -17 || a.outDb != -3 || a.grDb != 6 || a.cpu != 37 || strcmp(a.name, "Taylor 814 Body"))
     { printf("FAIL fields\n"); ++fails; }
     for(int i = 0; i < 18; ++i) if(a.v[i] != (int)((s.norm[i]) * 1000.f + 0.5f)) { printf("FAIL v[%d]=%d\n", i, a.v[i]); ++fails; }
+    if(strcmp(a.tag, "PUREIR")) { printf("FAIL tag %s\n", a.tag); ++fails; }
+    // a longer tag from an extended build is read the same way (checksum recomputed)
+    {
+        auto frame = [](const std::string& payload, char* out) {
+            uint8_t x = 0; for(char c : payload) x ^= (uint8_t)c;
+            sprintf(out, "$%s*%02X\n", payload.c_str(), x);
+        };
+        const std::string body(f + 1, strchr(f, '*'));   // "PUREIR,1,..."
+        char g[420]; AirStatus b; FrameParser q; bool ok = false;
+        frame("PUREIR-PRO" + body.substr(6), g);
+        for(const char* c = g; *c; ++c) ok |= q.Feed(*c, b);
+        if(!ok || strcmp(b.tag, "PUREIR-PRO") || b.irCnt != 11 || strcmp(b.name, "Taylor 814 Body"))
+        { printf("FAIL long tag\n"); ++fails; }
+        ok = false; frame("pure ir" + body.substr(6), g);
+        for(const char* c = g; *c; ++c) ok |= q.Feed(*c, b);
+        if(ok) { printf("FAIL bad tag accepted\n"); ++fails; }
+    }
     printf(fails ? "%d FAILURES\n" : "display parser: ALL PASSED\n", fails);
     return fails != 0;
 }

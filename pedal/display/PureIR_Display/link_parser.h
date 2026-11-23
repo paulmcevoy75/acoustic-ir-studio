@@ -10,6 +10,7 @@ struct AirStatus
     int  inDb = -99, outDb = -99, grDb = 0, cpu = 0;
     int  v[18] = {0};          // knob positions, 0..1000
     char name[24] = "";
+    char tag[16]  = "";        // who sent it: "PUREIR", or a longer name from an extended build
 };
 
 enum AirFlags
@@ -58,12 +59,24 @@ class FrameParser
         if(x != (uint8_t)(h1 * 16 + h2)) return false;
         buf_[star] = 0;
 
+        // tag: 1..15 of A-Z 0-9 - _ up to the first comma (PureIR sends "PUREIR")
         char* p = buf_;
-        if(strncmp(p, "PUREIR,", 7) != 0) return false;
-        p += 7;
+        AirStatus s;
+        int   t = 0;
+        while(p[t] && p[t] != ',')
+        {
+            const char c = p[t];
+            if(t >= (int)sizeof(s.tag) - 1
+               || !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_'))
+                return false;
+            s.tag[t] = c;
+            ++t;
+        }
+        if(t == 0 || p[t] != ',') return false;
+        s.tag[t] = 0;
+        p += t + 1;
         int ver;
         if(!Int(p, ver) || ver != 1) return false;
-        AirStatus s;
         int* head[] = {&s.bank, &s.engine, &s.irIdx, &s.irCnt, &s.flags,
                        &s.inDb, &s.outDb, &s.grDb, &s.cpu};
         for(int* d : head) if(!Int(p, *d)) return false;
