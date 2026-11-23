@@ -24,6 +24,7 @@ enum LinkFlags : uint16_t
     kFlagClip     = 1 << 5,
     kFlagBuiltin  = 1 << 6,
     kFlagOverload = 1 << 7,
+    kFlagUser     = 1 << 8, // bits 8..15: not used by PureIR, free for builds that extend it
 };
 
 struct LinkStatus

@@ -11,6 +11,7 @@
 #include <cstdint>
 
 #include "chain.h"
+#include "link.h"
 #include "params.h"
 #include "upload.h"
 
@@ -23,10 +24,10 @@ struct Controls
 {
     int   bank;              // 0..2 from the bank switch
     float knob[kKnobs];      // 0..1, may be changed by the hook
-    bool  fsw1Pressed, fsw1Rising;
+    bool  fsw1Pressed, fsw1Rising, fsw1Falling;
     // set by the hook:
     bool knobsTaken   = false; // true: the knobs do not drive the normal parameters this block
-    bool suppressFsw1 = false; // true: no left-footswitch tap/hold action this block
+    bool suppressFsw1 = false; // true: no left-footswitch tap or hold for the rest of this press
 };
 
 /** Everything a hook may need to reach. */
@@ -48,5 +49,8 @@ void OnIrLoaded(Context& c, int usbSlot, const store::SlotInfo* info);
 void Poll(Context& c, uint32_t nowMs);
 /** Left LED, normal (green) state only: may change the colour. */
 void NormalLed(Context& c, uint32_t nowMs, float& r, float& g, float& b);
+/** Main loop, just before each status frame is sent to the display: may change it.
+ *  Flag bits from kFlagUser upward are free for the build's own use. */
+void OnStatus(Context& c, LinkStatus& s);
 } // namespace hooks
 } // namespace pureir

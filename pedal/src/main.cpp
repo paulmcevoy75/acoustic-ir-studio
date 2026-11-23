@@ -137,6 +137,7 @@ static void ReadControls()
     hc.bank        = bank;
     hc.fsw1Pressed = hw.fsw_1.Pressed();
     hc.fsw1Rising  = hw.fsw_1.RisingEdge();
+    hc.fsw1Falling = hw.fsw_1.FallingEdge();
     for(int k = 0; k < kKnobs; ++k)
         hc.knob[k] = hw.pot[k].Value();
     hooks::OnControls(HookCtx(), hc);
@@ -164,8 +165,13 @@ static void ReadControls()
     }
 
     // footswitches
-    const FswEvent e1 = PollFsw(hw.fsw_1, g_fsw1);
-    switch(hc.suppressFsw1 ? kNone : e1)
+    FswEvent e1 = PollFsw(hw.fsw_1, g_fsw1);
+    if(hc.suppressFsw1)
+    {
+        g_fsw1.fired = true; // nothing more from this press (cleared on the next press)
+        e1           = kNone;
+    }
+    switch(e1)
     {
         case kTap: g_chain.SetBypass(!g_chain.Bypassed()); break;
         case kHold: g_chain.SetMute(!g_chain.Muted()); break;
@@ -375,6 +381,7 @@ __attribute__((weak)) void OnControls(Context&, Controls&) {}
 __attribute__((weak)) void OnIrLoaded(Context&, int, const store::SlotInfo*) {}
 __attribute__((weak)) void Poll(Context&, uint32_t) {}
 __attribute__((weak)) void NormalLed(Context&, uint32_t, float&, float&, float&) {}
+__attribute__((weak)) void OnStatus(Context&, LinkStatus&) {}
 } // namespace hooks
 } // namespace pureir
 
@@ -514,6 +521,7 @@ static void SendStatus(bool overload)
     for(int i = 0; i < kNumParams; ++i)
         s.norm[i] = g_params.Norm(i);
     s.irName = g_curName;
+    hooks::OnStatus(HookCtx(), s);
     const size_t n = BuildFrame(g_tx, sizeof(g_tx), s);
     if(n)
     {
