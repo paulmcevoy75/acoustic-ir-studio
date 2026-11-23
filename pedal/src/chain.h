@@ -56,6 +56,9 @@ class Chain
         bypass_ = mute_ = false;
         for(int i = 0; i < 6; ++i)
             cache_[i] = -1e9f;
+        for(auto& e : eqCache_)
+            e = 1e9f; // the EQ biquads were just reset, so set them again
+        compOn_ = false;
         std::memset(dry_, 0, sizeof(dry_));
         float v[kNumParams];
         for(int i = 0; i < kNumParams; ++i)

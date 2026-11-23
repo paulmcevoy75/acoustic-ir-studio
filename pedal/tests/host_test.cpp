@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <vector>
 #include <random>
 #include <complex>
@@ -367,10 +368,12 @@ static void TestChain()
 // ---------------------------------------------------------------- chain hooks
 // Runs 2 s of noise bursts through a chain; returns the output.  mode 0 = no hooks,
 // 1 = hooks that do nothing (must give the same bits), 2 = input hook that silences.
-static std::vector<float> RunHooked(int mode, int* calls)
+static std::vector<float> RunHooked(int mode, int* calls, Chain* reuse = nullptr)
 {
     ConvMem cm; std::vector<float> rv(Reverb::kMemFloats, 5.f);
-    static Chain ch; ch.Init(cm.m, rv.data());
+    std::unique_ptr<Chain> chp(reuse ? nullptr : new Chain); // a fresh chain unless told otherwise
+    Chain& ch = reuse ? *reuse : *chp;
+    ch.Init(cm.m, rv.data());
     const int L = 24000; std::vector<float> h(L);
     std::mt19937 r2(99); std::uniform_real_distribution<float> U(-1.f, 1.f);
     for(int i = 0; i < L; ++i) h[i] = U(r2) * std::exp(-6.f * i / L) * 0.03f;
@@ -402,6 +405,11 @@ static void TestChainHooks()
     CHECK(c1 == 2 * 48000 * 2 / 64 * 64, "hooks called for %d samples", c1);
     float pk = 0; for(size_t i = z.size() / 2; i < z.size(); ++i) pk = std::fmax(pk, std::fabs(z[i]));
     CHECK(c2 > 0 && pk < 1e-6f, "silencing input hook: tail peak %g", pk);
+    // Init() must fully reset: a chain set up a second time sounds like a fresh one
+    std::unique_ptr<Chain> again(new Chain);
+    RunHooked(0, nullptr, again.get());
+    const auto re = RunHooked(0, nullptr, again.get());
+    CHECK(std::memcmp(a.data(), re.data(), a.size() * sizeof(float)) == 0, "a re-initialised chain sounds different");
     printf("chain hooks: no-op hooks bit-identical, input hook works (tail peak %.1g)\n", pk);
 }
 
