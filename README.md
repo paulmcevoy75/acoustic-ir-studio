@@ -55,6 +55,12 @@ Python 3.10+. Install with `pip install -r requirements.txt -r requirements-dev.
 
 Found a bug or have an idea? [Open an issue](https://github.com/paulmcevoy75/acoustic-ir-studio/issues). If something went wrong, attach `app.log` (in the app: **Help > Open logs folder**).
 
+## About
+
+I'm Paul McEvoy, a guitarist. Like most acoustic players, I wanted my guitar to sound on stage the way it sounds in the room, not like a piezo. Capturing an IR used to mean a DAW, a deconvolution plugin and a lot of trial and error. I built Acoustic IR Studio so that any guitarist can plug in, play for a few minutes and get an accurate IR for their pedal.
+
+More of my playing and gear: [paulmcevoyguitars.com](https://paulmcevoyguitars.com), [Instagram](https://www.instagram.com/paulmcevoyguitars/) and [YouTube](https://www.youtube.com/@paulmcevoyguitars). Questions and ideas are welcome in [Discussions](https://github.com/paulmcevoy75/acoustic-ir-studio/discussions).
+
 ## Licence
 
 Free and open source under the [GNU General Public License v3.0](LICENSE). You may use, study, change and share it under the GPL's terms. It comes with **no warranty**: start at a sensible volume when monitoring or playing test sounds. Third-party components are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

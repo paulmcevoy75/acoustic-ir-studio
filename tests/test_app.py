@@ -208,3 +208,4 @@ def test_old_dual_project_builds_without_the_pair(app, fake_sd, monkeypatch):
     app.nb.select(app.tab_build)
     app.build()
     assert app.irm is not None and app.dual_pair is None and not app.v_dual_export.get()
+    assert "dual" not in app.aud_rb                     # no "Piezo 1 + 2 through the IR pair" in Basic

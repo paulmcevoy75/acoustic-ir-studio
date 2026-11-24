@@ -145,8 +145,8 @@ class AuditionPanel:
     AUD_RAW = (("dry", "Piezo (dry)"), ("A", "Reference Mic"), ("B", "Color Mic"), ("I", "Internal Mic"))
 
     AUD_IR = (("ir", "Piezo + chosen IR"), ("irA", "Piezo + Reference Mic IR"),
-              ("irB", "Piezo + Color Mic IR"), ("irmix", "Piezo + Blended IR"),
-              ("dual", "Piezo 1 + 2 through the IR pair"))
+              ("irB", "Piezo + Color Mic IR"), ("irmix", "Piezo + Blended IR"))
+    # (the dual-piezo option, "Piezo 1 + 2 through the IR pair", is in Acoustic IR Studio Pro)
 
     def _build_audition(self, parent):
         au = tk.LabelFrame(parent, text=" Audition ", font=("Segoe UI", 14, "bold"), fg="#1f3b66",
@@ -320,7 +320,8 @@ class AuditionPanel:
         self.aud_int_sc.state(["!disabled"] if src is not None and "I" in src else ["disabled"])
         dual_ok = (src is not None and "piezo2" in src and getattr(self, "dual_pair", None) is not None
                    and self.master_src in (None, "built"))
-        self.aud_rb["dual"].state(["!disabled"] if dual_ok else ["disabled"])
+        if "dual" in self.aud_rb:
+            self.aud_rb["dual"].state(["!disabled"] if dual_ok else ["disabled"])
         iid = self._target_iid()
         if iid is None:
             self.aud_target_lab.configure(text="Step 1: select your pedal in 'Export targets' (left) - "
