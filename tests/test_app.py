@@ -196,3 +196,15 @@ def test_same_loudness_export(app, fake_sd, save_to):
     r = app._fit("0")
     assert r["short_db"] is not None                          # the level note is computed
     assert not hasattr(app, "open_pedal_check") and "PO" not in app.inp and "piezo2" not in app.inp
+
+
+def test_old_dual_project_builds_without_the_pair(app, fake_sd, monkeypatch):
+    """A v1.26 dual-piezo project opened in Basic: the normal IR is built, the _P1/_P2 pair isn't."""
+    from irstudio import engine as E
+    setup_inputs(app)
+    capture(app, fake_sd, n=3)
+    monkeypatch.setattr(E.Accumulator, "has_dual", lambda self: True)
+    monkeypatch.setattr(E, "build_dual", lambda *a, **k: pytest.fail("Basic must not build the dual pair"))
+    app.nb.select(app.tab_build)
+    app.build()
+    assert app.irm is not None and app.dual_pair is None and not app.v_dual_export.get()

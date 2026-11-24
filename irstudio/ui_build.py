@@ -360,12 +360,9 @@ class BuildTab:
         self._aud_cache = {}
         self.dual_pair = None
         if any(self.acc[k] is not None and self.acc[k].has_dual() for k in SLOTS):
-            try:
-                self.dual_pair = E.build_dual(a if has_a else None, b if has_b else None, p, self.irm,
-                                              self.cal["A"], self.cal["B"])
-            except Exception as exc:
-                log.exception("dual build failed")
-                self.logln(f"BUILD: dual-piezo IR pair couldn't be made: {exc}")
+            # an older dual-piezo project: Basic builds the normal IR; the pair is a Pro feature
+            self.logln("BUILD: this project was recorded with two piezo elements. Basic makes the normal "
+                       "IR; the dual-piezo IR pair is in Acoustic IR Studio Pro.")
         # recorded with two piezo elements -> export the pair too; single piezo -> off
         self.v_dual_export.set(self.dual_pair is not None)
         self.dual_ck.state(["!disabled"] if self.dual_pair is not None else ["disabled"])
