@@ -31,6 +31,11 @@ Every zip includes **START HERE - setup instructions.txt** with step-by-step set
 - **Tone Match.** Make an IR from single notes so your instrument sounds like any recording (audio or video file).
 - **Safe by design.** Everything is autosaved as you go, with crash recovery and a project file you can reopen and re-export.
 
+
+## PureIR pedal
+
+The `pedal/` folder holds **PureIR**, open-source firmware for the Daisy Seed pedal that plays the IRs this app makes. See [pedal/README.md](pedal/README.md).
+
 ## Quick start
 
 1. **Setup:** pick your interface inputs for the piezo and the mic(s).

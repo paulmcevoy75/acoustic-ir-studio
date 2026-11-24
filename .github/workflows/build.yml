@@ -28,6 +28,24 @@ jobs:
       - name: Tests (including the app on a fake sound card)
         run: xvfb-run -a pytest -q -rs
 
+  pedal:
+    # PureIR pedal firmware (pedal/): PC tests + firmware build. Not part of the app release.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q gcc-arm-none-eabi libnewlib-arm-none-eabi python3-numpy python3-scipy
+      - name: libDaisy (pinned)
+        run: |
+          git clone -q https://github.com/electro-smith/libDaisy ../deps/libDaisy
+          cd ../deps/libDaisy && git checkout -q 933bd9e63e85e5183da893c72111210f8649f0cc
+          git submodule update -q --init --recursive && make -s -j4
+      - name: PC tests
+        run: cd pedal && sh tests/run.sh
+      - name: Firmware build
+        run: cd pedal && make -s -j4 LIBDAISY_DIR=$GITHUB_WORKSPACE/../deps/libDaisy
+
   build-windows:
     needs: test-linux
     runs-on: windows-latest
